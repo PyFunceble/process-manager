@@ -390,7 +390,7 @@ def test_perform_external_checks(worker_core):
     assert worker_core.perform_external_poweron_checks() is True
     assert worker_core.perform_external_poweroff_checks() is True
     assert worker_core.perform_external_inflight_checks("test_data") is True
-    assert worker_core.perform_external_postflight_checks() is True
+    assert worker_core.perform_external_postflight_checks("test_result") is True
 
 
 def test_run(worker_core):
