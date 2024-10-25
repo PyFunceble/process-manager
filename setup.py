@@ -120,8 +120,7 @@ def get_version():
     with open(about_path, encoding="utf-8") as file_stream:
         extracted = to_match.findall(file_stream.read())[0]
 
-    return extracted[: extracted.rfind(".")]
-
+    return extracted
 
 def get_long_description():  # pragma: no cover
     """
