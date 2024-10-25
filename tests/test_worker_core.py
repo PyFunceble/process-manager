@@ -7,6 +7,18 @@ import pytest
 from PyFunceble.ext.process_manager.worker.core import WorkerCore
 
 
+def mock_target(consumed):
+    return f"processed_{consumed}"
+
+
+def mock_target_exception(consumed):
+    raise RuntimeError(f"Test Exception: {consumed}")
+
+
+def mock_target_eoferror(consumed):
+    raise EOFError(f"Test Exception: {consumed}")
+
+
 @pytest.fixture
 def worker_core():
     global_exit_event = multiprocessing.Event()
@@ -24,9 +36,6 @@ def worker_core():
 
 @pytest.fixture
 def started_worker_core(worker_core):
-    def mock_target(consumed):
-        return f"processed_{consumed}"
-
     worker_core.target = mock_target
     worker_core.start()
 
@@ -401,11 +410,7 @@ def test_run(worker_core):
 
 
 def test_terminate_method(worker_core, monkeypatch):
-    def mock_super_terminate(self):
-        worker_core.exit_event.set()
-        worker_core.push_to_input_queue("stop", destination_worker=worker_core.name)
-
-    monkeypatch.setattr("multiprocessing.Process.terminate", mock_super_terminate)
+    monkeypatch.setattr("multiprocessing.Process.terminate", lambda x: None)
 
     worker_core.terminate()
 
@@ -487,10 +492,7 @@ def test_run_with_wait_signal(started_worker_core):
 
 
 def test_run_with_exception(worker_core):
-    def mock_target(consumed):
-        raise RuntimeError("Test Exception")
-
-    worker_core.target = mock_target
+    worker_core.target = mock_target_exception
     worker_core.start()
 
     assert worker_core.exception is None
@@ -506,10 +508,7 @@ def test_run_with_exception(worker_core):
 
 
 def test_run_with_EOFError(worker_core):
-    def mock_target(consumed):
-        raise EOFError("Test Exception")
-
-    worker_core.target = mock_target
+    worker_core.target = mock_target_eoferror
     worker_core.start()
 
     assert worker_core.exception is None
