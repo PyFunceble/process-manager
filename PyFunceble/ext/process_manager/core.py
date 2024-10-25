@@ -378,7 +378,7 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if self.is_running():
+            if self.running:
                 return self
 
             return func(self, *args, **kwargs)  # pylint: disable=not-callable
@@ -407,6 +407,35 @@ class ProcessManagerCore:
             return self.AVAILABLE_CPU_COUNT - 2
 
         return self.AVAILABLE_CPU_COUNT
+
+    @property
+    def queue_size(self) -> int:
+        """
+        Provides the size of the queue to use.
+        """
+
+        if not self.input_queue:
+            return 0
+        return self.input_queue.qsize()
+
+    @property
+    def queue_full(self) -> bool:
+        """
+        Provides the status of the queue.
+        """
+
+        return self.queue_size >= self.max_workers
+
+    @property
+    def running(self) -> bool:
+        """
+        Provides the status of the worker(s).
+        """
+
+        if not self.running_workers:
+            return False
+
+        return any(x.is_alive() for x in self.running_workers)
 
     @property
     def max_workers(self) -> int:
@@ -438,10 +467,14 @@ class ProcessManagerCore:
         Checks if at least one worker is running.
         """
 
-        if not self.running_workers:
-            return False
+        return self.running
 
-        return any(x.is_alive() for x in self.running_workers)
+    def is_queue_full(self) -> bool:
+        """
+        Checks if the queue is full.
+        """
+
+        return self.queue_full
 
     @ensure_worker_spawned
     def push_to_input_queue(
@@ -472,7 +505,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.is_running():
+        if self.running:
             workers = self.running_workers
         else:
             workers = self.created_workers
@@ -522,7 +555,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.is_running():
+        if self.running:
             workers = self.running_workers
         else:
             workers = self.created_workers
@@ -567,7 +600,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.is_running():
+        if self.running:
             workers = self.running_workers
         else:
             workers = self.created_workers
@@ -628,7 +661,7 @@ class ProcessManagerCore:
             **self._extra_args,
         )
 
-        if self.is_running():
+        if self.running:
             # Just to make sure that the worker is aware that it might not not alone.
             worker.concurrent_workers_names = [x.name for x in self.created_workers]
         else:

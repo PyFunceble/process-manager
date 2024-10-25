@@ -18,6 +18,7 @@ class DummyWorker:
         self.global_exit_event = MagicMock()
         self.start = MagicMock()
         self.exception = None
+        self.target = MagicMock()
 
 
 ProcessManagerCore.WORKER_CLASS = DummyWorker
@@ -122,11 +123,59 @@ def test_max_workers(process_manager):
         process_manager.max_workers = "1.0"
 
 
+def test_queue_size(process_manager):
+    assert process_manager.queue_size == 0
+
+    process_manager.input_queue.put("test_data")
+    process_manager.input_queue.put("test_data")
+    process_manager.input_queue.put("test_data")
+    process_manager.input_queue.put("test_data")
+
+    assert process_manager.queue_size == 4
+
+
+def test_queue_size_with_no_queue(process_manager):
+    process_manager.input_queue = None
+    assert process_manager.queue_size == 0
+
+
+def test_queue_full(process_manager):
+    process_manager.max_workers = 3
+    assert process_manager.queue_full is False
+    assert process_manager.is_queue_full() is False
+    assert process_manager.queue_size == 0
+
+    process_manager.input_queue.put("test_data")
+    process_manager.input_queue.put("test_data")
+
+    assert process_manager.queue_size == 2
+    assert process_manager.queue_full is False
+    assert process_manager.is_queue_full() is False
+
+    process_manager.input_queue.put("test_data")
+    process_manager.input_queue.put("test_data")
+
+    assert process_manager.queue_size == 4
+    assert process_manager.queue_full is True
+    assert process_manager.is_queue_full() is True
+
+
 def test_spawn_worker(process_manager):
     worker = process_manager.spawn_worker()
     assert worker is not None
     assert worker.name == "ppm-pyfunceble-process-manager-1"
     assert len(process_manager.created_workers) == 1
+
+
+def test_is_running(process_manager):
+    assert process_manager.is_running() is False
+
+    worker = process_manager.spawn_worker(start=True)
+    assert process_manager.is_running() is True
+
+    process_manager.terminate_worker(worker)
+
+    assert process_manager.is_running() is False
 
 
 def test_spawn_worker_max_workers(process_manager):
