@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint:
-    name: Lint PyFunceble Extension
+    name: Lint Extension
 
     runs-on: "${{ matrix.os }}"
 
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --upgrade .[dev]
           pip install pylint
 
       - name: Lint with Pylint
@@ -43,7 +43,7 @@ jobs:
 
   test:
     needs: [lint]
-    name: "[${{ matrix.os }}-py${{ matrix.python_version }}] Test PyFunceble Extension"
+    name: "[${{ matrix.os }}-py${{ matrix.python_version }}] Test Extension"
 
     runs-on: "${{ matrix.os }}"
 
@@ -73,10 +73,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --upgrade .[test]
           pip install tox coveralls
 
-      - name: Run tests as defined through tox.ini
+      - name: Test as defined by tox.ini
         run: |
           tox -c tox.ini
 
