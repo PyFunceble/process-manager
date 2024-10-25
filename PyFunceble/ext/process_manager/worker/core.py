@@ -926,6 +926,9 @@ class WorkerCore(multiprocessing.Process):
                         )
 
                         break
+                except TypeError:  # pragma: no cover
+                    logging.debug("%s | No valid message to consume.", self.name)
+                    continue
 
                 if (
                     self.targeted_processing
