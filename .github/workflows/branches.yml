@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --upgrade .[test]
           pip install tox coveralls
 
       - name: Test as defined by tox.ini
