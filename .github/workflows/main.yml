@@ -126,7 +126,7 @@ jobs:
     permissions:
       id-token: write
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: "${{ matrix.os }}"
 
