@@ -335,7 +335,7 @@ class ProcessManagerCore:
             The attribute to get the value of.
         """
 
-        if attribute in self._extra_args:
+        if self._extra_args and attribute in self._extra_args:
             return self._extra_args[attribute]
 
         raise AttributeError(f"{self.__class__.__name__} has no attribute {attribute}")
