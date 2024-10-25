@@ -122,6 +122,10 @@ jobs:
     needs: [test, example-test]
     name: "Deploy 📦 to the PyPi"
 
+    environment: release
+    permissions:
+      id-token: write
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
     runs-on: "${{ matrix.os }}"
@@ -159,7 +163,6 @@ jobs:
       - name: Publish 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_DEV_API_TOKEN }}
           skip-existing: true
 
   # deploy_to_aur:
