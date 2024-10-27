@@ -618,7 +618,7 @@ class WorkerCore(multiprocessing.Process):
                         time.sleep(self.sharing_delay)
 
                     self.push_to_output_queues(message, destination_worker=worker_name)
-            else:
+            elif self.output_queues:
                 for _ in range(len(self.output_queues)):
                     self.push_to_output_queues(message)
         else:
