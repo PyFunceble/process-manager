@@ -139,9 +139,8 @@ if __name__ == "__main__":
         max_workers=1,
         generate_output_queue=True,
         output_queue_count=1,
-        dynamic_up_scaling=True,
+        dynamic_up_scaling=dynamic_scaling,
         dynamic_down_scaling=dynamic_scaling,
-        spread_stop_signal=dynamic_scaling,
     )
     # Configure the manager to generate 1 worker/process.
     data_printer_manager = DataPrinterManager(
@@ -150,8 +149,9 @@ if __name__ == "__main__":
         generate_output_queue=False,
     )
 
-    # Build dependencies, so that we can use scaling at it best.
-    data_filter_manager.add_dependent_manager(data_printer_manager)
+    if dynamic_scaling:
+        # Build dependencies, so that we can use scaling at it best.
+        data_filter_manager.add_dependent_manager(data_printer_manager)
 
     # Start the manager.
     data_filter_manager.start()
