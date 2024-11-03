@@ -17,12 +17,13 @@ pip3 install pyfunceble-process-manager
 ## Usage / Example
 
 ```python
+import sys
 from typing import Any
+
 from PyFunceble.ext.process_manager import ProcessManagerCore, WorkerCore
 
 
 class DataFilterWorker(WorkerCore):
-
     def perform_external_poweron_checks(self) -> bool:
         # This can be used to perform checks before starting the worker.
         # If False is returned, the worker will not start.
@@ -55,11 +56,11 @@ class DataFilterWorker(WorkerCore):
         # has processed the data.
 
         print("DataFilter produced:", produced)
-
         return super().perform_external_postflight_checks(produced)
 
     def target(self, consumed: Any) -> Any:
-        # Here we simply convert the string to uppercase as an example of data processing.
+        # Here we simply convert the string to uppercase as an example of data
+        # processing.
         return consumed.upper()
 
 
@@ -70,15 +71,21 @@ class DataPrinterWorker(WorkerCore):
 
 
 class DataFilterManager(ProcessManagerCore):
+    STD_NAME = "data-filter"
     WORKER_CLASS = DataFilterWorker
 
 
 class DataPrinterManager(ProcessManagerCore):
+    STD_NAME = "data-printer"
     WORKER_CLASS = DataPrinterWorker
 
 
 if __name__ == "__main__":
-    # By default, our interfaces will log to the console.
+    dynamic_scaling = len(sys.argv) > 1
+
+    # By default, our interfaces won't log anything. If you need to see or analyze
+    # what is going on under the hood, uncomment the following
+    # logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
 
     data_to_filter = [
         "hello",
@@ -88,9 +95,17 @@ if __name__ == "__main__":
         None,  # This will be filtered out because it's not a string.
     ]
 
+    if dynamic_scaling:
+        # Add more data so that we can see the workers in action.
+        data_to_filter += [f"Hello, {i}!" for i in range(1000 + 1)]
+
     # Configure the manager to generate 2 workers/processes.
     data_filter_manager = DataFilterManager(
-        max_workers=2, generate_output_queue=True, output_queue_count=1
+        max_workers=1,
+        generate_output_queue=True,
+        output_queue_count=1,
+        dynamic_up_scaling=dynamic_scaling,
+        dynamic_down_scaling=dynamic_scaling,
     )
     # Configure the manager to generate 1 worker/process.
     data_printer_manager = DataPrinterManager(
@@ -98,6 +113,10 @@ if __name__ == "__main__":
         input_queue=data_filter_manager.output_queues[0],
         generate_output_queue=False,
     )
+
+    if dynamic_scaling:
+        # Build dependencies, so that we can use scaling at it best.
+        data_filter_manager.add_dependent_manager(data_printer_manager)
 
     # Start the manager.
     data_filter_manager.start()
@@ -118,7 +137,8 @@ if __name__ == "__main__":
     # Wait for the manager to finish processing the data.
     data_filter_manager.wait()
 
-    # If we want to terminate the manager and all workers, we can call the terminate method.
+    # If we want to terminate the manager and all workers, we can call the
+    # terminate method.
     data_filter_manager.terminate()
 
     print("Data filtered successfully.")
