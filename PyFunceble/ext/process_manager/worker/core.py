@@ -578,6 +578,7 @@ class WorkerCore(multiprocessing.Process):
         message: Any,
         *,
         overall: bool = False,
+        input_queue_only: bool = False,
         output_queue_only: bool = False,
         apply_delay: bool = False,
     ) -> "WorkerCore":
@@ -589,6 +590,8 @@ class WorkerCore(multiprocessing.Process):
         :param overall:
             Share the message back to ourself, our concurrent workers and the
             dependent workers.
+        :param input_queue_only:
+            Whether we should share the message to the input queue only.
         :param output_queue_only:
             Whether we should share the message to the output queues only.
         :param apply_delay:
@@ -603,29 +606,34 @@ class WorkerCore(multiprocessing.Process):
             time.sleep(self.sharing_delay)
 
         if overall:
-            self.push_to_input_queue(message, destination_worker=self.name)
+            if input_queue_only or not output_queue_only:
+                self.push_to_input_queue(message, destination_worker=self.name)
 
-            if not output_queue_only:
+            if input_queue_only or not output_queue_only:
                 for worker_name in self.concurrent_workers_names:
                     if self.delay_message_sharing or apply_delay:
                         time.sleep(self.sharing_delay)
 
                     self.push_to_input_queue(message, destination_worker=worker_name)
 
-            if self.dependent_workers_names:
-                for worker_name in self.dependent_workers_names:
-                    if self.delay_message_sharing or apply_delay:
-                        time.sleep(self.sharing_delay)
+            if output_queue_only or not input_queue_only:
+                if self.dependent_workers_names:
+                    for worker_name in self.dependent_workers_names:
+                        if self.delay_message_sharing or apply_delay:
+                            time.sleep(self.sharing_delay)
 
-                    self.push_to_output_queues(message, destination_worker=worker_name)
-            elif self.output_queues:
-                for _ in range(len(self.output_queues)):
-                    self.push_to_output_queues(message)
+                        self.push_to_output_queues(
+                            message, destination_worker=worker_name
+                        )
+                elif self.output_queues:
+                    for _ in range(len(self.output_queues)):
+                        self.push_to_output_queues(message)
         else:
-            if not output_queue_only:
+            if input_queue_only or not output_queue_only:
                 self.push_to_input_queue(message)
 
-            self.push_to_output_queues(message)
+            if output_queue_only or not input_queue_only:
+                self.push_to_output_queues(message)
 
         return self
 
@@ -634,6 +642,7 @@ class WorkerCore(multiprocessing.Process):
         *,
         overall: bool = False,
         output_queue_only: bool = False,
+        input_queue_only: bool = False,
         apply_delay: bool = False,
     ) -> "WorkerCore":
         """
@@ -645,14 +654,17 @@ class WorkerCore(multiprocessing.Process):
             Share the message to all output queues.
         :param output_queue_only:
             Whether we should share the message to the output queues only.
+        :param input_queue_only:
+            Whether we should share the message to the input queue only.
         :param apply_delay:
             Whether we should apply a delay before sharing the message.
         """
 
         return self.share_message(
-            "wait",
+            "__wait__",
             overall=overall,
             output_queue_only=output_queue_only,
+            input_queue_only=input_queue_only,
             apply_delay=apply_delay,
         )
 
@@ -661,6 +673,7 @@ class WorkerCore(multiprocessing.Process):
         *,
         overall: bool = False,
         output_queue_only: bool = False,
+        input_queue_only: bool = False,
         apply_delay: bool = False,
     ) -> "WorkerCore":
         """
@@ -672,14 +685,17 @@ class WorkerCore(multiprocessing.Process):
             Share the message to all output queues.
         :param output_queue_only:
             Whether we should share the message to the output queues only.
+        :param input_queue_only:
+            Whether we should share the message to the input queue only.
         :param apply_delay:
             Whether we should apply a delay before sharing the message.
         """
 
         return self.share_message(
-            "stop",
+            "__stop__",
             overall=overall,
             output_queue_only=output_queue_only,
+            input_queue_only=input_queue_only,
             apply_delay=apply_delay,
         )
 
@@ -954,7 +970,7 @@ class WorkerCore(multiprocessing.Process):
                     "%s | Consumed from %s: %r", self.name, worker_name, consumed
                 )
 
-                if consumed == "ppm-immediate-shutdown":  # pragma: no cover
+                if consumed == "__immediate_shutdown__":  # pragma: no cover
                     # A shutdown signal was received.
                     # A shutdown signal comes from scaling. Therefore, we don't
                     # handle it as a soft signal with a possible delay or spreading.
@@ -971,7 +987,7 @@ class WorkerCore(multiprocessing.Process):
 
                     continue
 
-                if consumed == "stop":
+                if consumed == "__stop__":
                     # A stop signal was received.
 
                     # We have to delay the shutdown of the worker.
@@ -995,7 +1011,11 @@ class WorkerCore(multiprocessing.Process):
 
                     if self.spread_stop_signal:
                         # We have to spread the stop signal to everyone.
-                        self.share_stop_signal(overall=self.spread_stop_signal)
+                        self.share_stop_signal(
+                            overall=self.spread_stop_signal,
+                            input_queue_only=True,
+                            output_queue_only=False,
+                        )
 
                         logger.debug(
                             "%s | Stop signal received. Spreading the stop signal.",
@@ -1008,7 +1028,7 @@ class WorkerCore(multiprocessing.Process):
 
                     continue
 
-                if consumed == "wait":
+                if consumed == "__wait__":
                     self.share_wait_signal(overall=self.spread_wait_signal)
 
                     logger.debug(
@@ -1099,7 +1119,6 @@ class WorkerCore(multiprocessing.Process):
         """
 
         self.exit_event.set()
-        self.push_to_input_queue("stop", destination_worker=self.name)
 
         try:
             super().terminate()

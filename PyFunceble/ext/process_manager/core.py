@@ -881,7 +881,7 @@ class ProcessManagerCore:
                 worker_to_kill = self.running_workers[-1]
 
                 # We shutdown the last worker by sending the predefined message.
-                worker_to_kill.push_to_input_queue("ppm-immediate-shutdown")
+                worker_to_kill.push_to_input_queue("__immediate_shutdown__")
 
                 self.running_workers.remove(worker_to_kill)
                 self.created_workers.remove(worker_to_kill)
@@ -937,7 +937,24 @@ class ProcessManagerCore:
         """
 
         self.push_to_input_queue(
-            "stop", source_worker=source_worker, all_queues=all_workers
+            "__stop__", source_worker=source_worker, all_queues=all_workers
+        )
+
+        return self
+
+    def share_stop_signal(
+        self, *, source_worker: Optional[str] = None
+    ) -> "ProcessManagerCore":
+        """
+        Shares the stop signal to the worker(s).
+
+        :param str source_worker:
+            The name to use to identify the worker or process that is sending
+            the data.
+        """
+
+        self.push_to_output_queues(
+            "__stop__", source_worker=source_worker, all_queues=self.spread_stop_signal
         )
 
         return self
@@ -953,7 +970,9 @@ class ProcessManagerCore:
             the data.
         """
 
-        self.push_to_input_queue("wait", source_worker=source_worker, all_queues=True)
+        self.push_to_input_queue(
+            "__wait__", source_worker=source_worker, all_queues=True
+        )
 
         return self
 
@@ -989,17 +1008,14 @@ class ProcessManagerCore:
 
         logger.debug("%s-manager | Terminating all workers.", self.STD_NAME)
 
+        if not self.global_exit_event.is_set():
+            # Set the global exit event to tell the workers to stop.
+            self.global_exit_event.set()
+
         workers = list(set(self.running_workers + self.created_workers))
 
         if workers:
-            random_worker = random.choice(workers)
-
-            if (
-                not random_worker.global_exit_event.is_set()
-            ):  # pragma: no cover # Safety.
-                # Set the global exit event to tell the workers to stop.
-                random_worker.global_exit_event.set()
-                self.push_stop_signal()
+            self.push_stop_signal()
 
         for worker in workers:
             if not worker.is_alive():
@@ -1008,9 +1024,10 @@ class ProcessManagerCore:
             # Wait for each worker to terminate.
             self.terminate_worker(worker)
 
-        # When all workers are terminated, we send a stop message to the workers
-        # that depends on the currently managed workers.
-        self.push_to_output_queues("stop", all_queues=True)
+        if self.spread_stop_signal:
+            # When all workers are terminated, we send a stop message to the workers
+            # that depends on the currently managed workers.
+            self.share_stop_signal()
 
         logger.debug("%s-manager | All workers terminated.", self.STD_NAME)
 

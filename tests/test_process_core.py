@@ -326,7 +326,7 @@ def test_push_stop_signal(process_manager):
 
     for index, worker in enumerate(process_manager.created_workers):
         worker.push_to_input_queue.assert_called_with(
-            "stop",
+            "__stop__",
             source_worker="ppm-pyfunceble-process-manager",
             destination_worker=f"ppm-pyfunceble-process-manager-{index+1}",
         )
@@ -337,7 +337,7 @@ def test_wait_signal(process_manager):
 
     for index, worker in enumerate(process_manager.created_workers):
         worker.push_to_input_queue.assert_called_with(
-            "wait",
+            "__wait__",
             source_worker="ppm-pyfunceble-process-manager",
             destination_worker=f"ppm-pyfunceble-process-manager-{index+1}",
         )
@@ -347,7 +347,7 @@ def test_wait(process_manager):
     running_worker = process_manager.spawn_worker(start=True)
     created_worker = process_manager.spawn_worker()
 
-    process_manager.push_to_input_queue("wait", all_queues=True)
+    process_manager.push_to_input_queue("__wait__", all_queues=True)
 
     process_manager.wait()
 
@@ -408,31 +408,55 @@ def test_terminate(process_manager):
     assert len(process_manager.created_workers) == 2
 
     process_manager.terminate()
-    process_manager.push_to_output_queues.assert_called_with("stop", all_queues=True)
 
     assert len(process_manager.created_workers) == 0
 
 
-def test_terminate_no_running_workers(process_manager):
+def test_terminate_spread_stop_signal(process_manager):
     process_manager.push_to_output_queues = MagicMock()
+    process_manager.spread_stop_signal = True
+
+    process_manager.spawn_worker()
+    process_manager.spawn_worker()
+
+    assert len(process_manager.created_workers) == 2
+    assert len(process_manager.running_workers) == 0
+
+    process_manager.terminate()
+
+    assert len(process_manager.created_workers) == 0
+    assert len(process_manager.running_workers) == 0
+    process_manager.push_to_output_queues.assert_called_with(
+        "__stop__", source_worker=None, all_queues=True
+    )
+
+
+def test_terminate_no_running_workers(process_manager):
+    process_manager.push_to_input_queue = MagicMock()
+    process_manager.push_to_output_queues = MagicMock()
+    process_manager.push_stop_signal = MagicMock()
 
     process_manager.spawn_worker(start=False)
 
     assert len(process_manager.created_workers) == 1
     assert len(process_manager.running_workers) == 0
+    assert process_manager.global_exit_event.is_set() is False
 
     process_manager.terminate()
-    process_manager.push_to_output_queues.assert_called_with("stop", all_queues=True)
-    process_manager.push_to_output_queues.reset_mock()
+    process_manager.push_stop_signal.assert_called()
+    process_manager.push_stop_signal.reset_mock()
+    assert process_manager.global_exit_event.is_set() is True
 
     process_manager.created_workers = [MagicMock()]
     process_manager.created_workers[0].is_alive = MagicMock(return_value=False)
     process_manager.created_workers[0].terminate = MagicMock()
+    process_manager.global_exit_event.clear()
 
     process_manager.terminate()
     process_manager.created_workers[0].terminate.assert_not_called()
     process_manager.created_workers[0].is_alive.assert_called_once()
-    process_manager.push_to_output_queues.assert_called_with("stop", all_queues=True)
+    process_manager.push_stop_signal.assert_called()
+    assert process_manager.global_exit_event.is_set() is True
 
     assert len(process_manager.created_workers) == 1
     assert len(process_manager.running_workers) == 0

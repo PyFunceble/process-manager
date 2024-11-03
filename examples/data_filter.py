@@ -52,6 +52,7 @@ License:
     limitations under the License.
 """
 
+import logging
 import sys
 from typing import Any
 
@@ -120,6 +121,7 @@ if __name__ == "__main__":
 
     # By default, our interfaces won't log anything. If you need to see or analyze
     # what is going on under the hood, uncomment the following
+    # logging.basicConfig(level=logging.DEBUG)
     # logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
 
     data_to_filter = [
@@ -136,7 +138,7 @@ if __name__ == "__main__":
 
     # Configure the manager to generate 2 workers/processes.
     data_filter_manager = DataFilterManager(
-        max_workers=1,
+        max_workers=10,
         generate_output_queue=True,
         output_queue_count=1,
         dynamic_up_scaling=dynamic_scaling,
