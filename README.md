@@ -14,9 +14,23 @@ to use it without the need to install the whole PyFunceble project.
 pip3 install pyfunceble-process-manager
 ```
 
-## Usage / Example
+## Reserved Messages
+
+As we implement our very own "message system" to communicate between the
+processes, we have reserved some messages that you should not use in your
+implementation.
+
+| Message                  | Description                                                                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `__stop__`               | This message is used to instruct the worker to start the shutdown process.                                                                                        |
+| `__immediate_shutdown__` | This message is used to instruct the worker to shutdown immediately.                                                                                              |
+| `__wait__`               | This message is used to instruct the worker to wait for the next message. _Sending this message will actually make the worker re-execute any (preflight) checks._ |
+
+
+## Example
 
 ```python
+import logging
 import sys
 from typing import Any
 
@@ -85,6 +99,7 @@ if __name__ == "__main__":
 
     # By default, our interfaces won't log anything. If you need to see or analyze
     # what is going on under the hood, uncomment the following
+    # logging.basicConfig(level=logging.DEBUG)
     # logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
 
     data_to_filter = [
@@ -101,7 +116,7 @@ if __name__ == "__main__":
 
     # Configure the manager to generate 2 workers/processes.
     data_filter_manager = DataFilterManager(
-        max_workers=1,
+        max_workers=10,
         generate_output_queue=True,
         output_queue_count=1,
         dynamic_up_scaling=dynamic_scaling,

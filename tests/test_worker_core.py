@@ -365,22 +365,22 @@ def test_share_message_overall_with_explicit_dependencies_and_delay(worker_core)
 def test_share_wait_signal(worker_core):
     worker_core.share_wait_signal()
 
-    assert worker_core.input_queue.get(timeout=3) == ("test_worker", None, "wait")
+    assert worker_core.input_queue.get(timeout=3) == ("test_worker", None, "__wait__")
     assert worker_core.input_queue.empty()
 
     for output_queue in worker_core.output_queues:
-        assert output_queue.get(timeout=3) == ("test_worker", None, "wait")
+        assert output_queue.get(timeout=3) == ("test_worker", None, "__wait__")
         assert output_queue.empty()
 
 
 def test_share_stop_signal(worker_core):
     worker_core.share_stop_signal()
 
-    assert worker_core.input_queue.get(timeout=3) == ("test_worker", None, "stop")
+    assert worker_core.input_queue.get(timeout=3) == ("test_worker", None, "__stop__")
     assert worker_core.input_queue.empty()
 
     for output_queue in worker_core.output_queues:
-        assert output_queue.get(timeout=3) == ("test_worker", None, "stop")
+        assert output_queue.get(timeout=3) == ("test_worker", None, "__stop__")
         assert output_queue.empty()
 
 
@@ -447,18 +447,13 @@ def test_terminate_method(worker_core, monkeypatch):
     worker_core.terminate()
 
     assert worker_core.exit_event.is_set()
-    assert worker_core.input_queue.get(timeout=3) == (
-        "test_worker",
-        "test_worker",
-        "stop",
-    )
 
 
 def test_run_with_global_exit_event(started_worker_core):
     worker_core = started_worker_core
     worker_core.global_exit_event.set()
 
-    worker_core.push_to_input_queue("wait")
+    worker_core.push_to_input_queue("__wait__")
 
     worker_core.join()
     worker_core.terminate()
@@ -470,7 +465,7 @@ def test_run_with_exit_event(started_worker_core):
     worker_core = started_worker_core
     worker_core.exit_event.set()
 
-    worker_core.push_to_input_queue("wait")
+    worker_core.push_to_input_queue("__wait__")
 
     worker_core.join()
     worker_core.terminate()
@@ -482,7 +477,7 @@ def test_run_with_data_processing(started_worker_core):
     worker_core = started_worker_core
 
     worker_core.push_to_input_queue("test_data")
-    worker_core.push_to_input_queue("stop")
+    worker_core.push_to_input_queue("__stop__")
 
     worker_core.join()
     worker_core.terminate()
@@ -492,13 +487,18 @@ def test_run_with_data_processing(started_worker_core):
         None,
         "processed_test_data",
     )
-    assert worker_core.output_queues[0].get(timeout=3) == ("test_worker", None, "stop")
+    assert worker_core.input_queue.get(timeout=3) == (
+        "test_worker",
+        "test_worker",
+        "__stop__",
+    )
     assert worker_core.output_queues[0].empty()
+    assert worker_core.input_queue.empty()
 
 
 def test_run_with_stop_signal(started_worker_core):
     worker_core = started_worker_core
-    worker_core.push_to_input_queue("stop")
+    worker_core.push_to_input_queue("__stop__")
 
     worker_core.join()
     worker_core.terminate()
@@ -511,8 +511,8 @@ def test_run_with_wait_signal(started_worker_core):
     worker_core.spread_wait_signal = True
     worker_core.spread_stop_signal = True
 
-    worker_core.push_to_input_queue("wait")
-    worker_core.push_to_input_queue("stop")
+    worker_core.push_to_input_queue("__wait__")
+    worker_core.push_to_input_queue("__stop__")
 
     worker_core.join()
     worker_core.terminate()
@@ -520,28 +520,18 @@ def test_run_with_wait_signal(started_worker_core):
     assert worker_core.input_queue.get(timeout=3) == (
         "test_worker",
         "test_worker",
-        "wait",
+        "__wait__",
     )
     assert worker_core.input_queue.get(timeout=3) == (
         "test_worker",
         "test_worker",
-        "stop",
-    )
-    assert worker_core.input_queue.get(timeout=3) == (
-        "test_worker",
-        "test_worker",
-        "stop",
-    )
-    assert worker_core.input_queue.get(timeout=3) == (
-        "test_worker",
-        "test_worker",
-        "stop",
+        "__stop__",
     )
     assert worker_core.input_queue.empty()
+    assert worker_core.exit_event.is_set() is True
 
     for output_queue in worker_core.output_queues:
-        assert output_queue.get(timeout=3) == ("test_worker", None, "wait")
-        assert output_queue.get(timeout=3) == ("test_worker", None, "stop")
+        assert output_queue.get(timeout=3) == ("test_worker", None, "__wait__")
         assert output_queue.empty()
 
 
@@ -552,7 +542,7 @@ def test_run_with_exception(worker_core):
     assert worker_core.exception is None
 
     worker_core.push_to_input_queue("test_data")
-    worker_core.push_to_input_queue("stop")
+    worker_core.push_to_input_queue("__stop__")
 
     worker_core.join()
     worker_core.terminate()
@@ -589,4 +579,4 @@ def test_run_with_type_error(started_worker_core):
         assert output_queue.get(timeout=3) == ("test_worker", None, "processed_22")
         assert output_queue.empty()
 
-    worker_core.push_to_input_queue("stop")
+    worker_core.push_to_input_queue("__stop__")
