@@ -905,10 +905,10 @@ class WorkerCore(multiprocessing.Process):
                 self.take_a_break()
 
                 try:
-                    logging.debug("%s | Waiting for message.", self.name)
+                    logger.debug("%s | Waiting for message.", self.name)
                     worker_name, destination_worker, consumed = self.input_queue.get()
                 except queue.Empty:  # pragma: no cover
-                    logging.debug("%s | No message to consume.", self.name)
+                    logger.debug("%s | No message to consume.", self.name)
                     continue
                 except (EOFError, KeyboardInterrupt):  # pragma: no cover
                     logger.debug(
@@ -927,7 +927,7 @@ class WorkerCore(multiprocessing.Process):
 
                         break
                 except TypeError:  # pragma: no cover
-                    logging.debug("%s | No valid message to consume.", self.name)
+                    logger.debug("%s | No valid message to consume.", self.name)
                     continue
 
                 if (
@@ -953,6 +953,23 @@ class WorkerCore(multiprocessing.Process):
                 logger.debug(
                     "%s | Consumed from %s: %r", self.name, worker_name, consumed
                 )
+
+                if consumed == "ppm-immediate-shutdown":  # pragma: no cover
+                    # A shutdown signal was received.
+                    # A shutdown signal comes from scaling. Therefore, we don't
+                    # handle it as a soft signal with a possible delay or spreading.
+
+                    logger.debug(
+                        "%s | Shutdown signal received from %s. Stopping worker.",
+                        self.name,
+                        worker_name,
+                    )
+
+                    # If a shutdown came, we have to stop the worker silently,
+                    # without spreading the stop signal.
+                    self.exit_event.set()
+
+                    continue
 
                 if consumed == "stop":
                     # A stop signal was received.
@@ -1048,7 +1065,14 @@ class WorkerCore(multiprocessing.Process):
                         self.name,
                     )
                     continue
+        except (ConnectionResetError, BrokenPipeError):  # pragma: no cover
+            # This happens when the communication channels are broken or closed.
+            # Which is OK.
 
+            logger.debug(
+                "%s | ConnectionResetError or BrokenPipeError. Stopping worker.",
+                self.name,
+            )
         except Exception as exception:  # pylint: disable=broad-exception-caught
             logger.critical(
                 "%s | An exception was raised. Stopping worker.",
@@ -1065,6 +1089,7 @@ class WorkerCore(multiprocessing.Process):
                 raise exception
 
         self.perform_external_poweroff_checks()
+        self.terminate()
 
         return self
 
@@ -1077,6 +1102,6 @@ class WorkerCore(multiprocessing.Process):
         self.push_to_input_queue("stop", destination_worker=self.name)
 
         try:
-            return super().terminate()
+            super().terminate()
         except AttributeError:  # pragma: no cover
-            return None
+            pass

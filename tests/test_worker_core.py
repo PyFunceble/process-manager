@@ -509,6 +509,7 @@ def test_run_with_stop_signal(started_worker_core):
 def test_run_with_wait_signal(started_worker_core):
     worker_core = started_worker_core
     worker_core.spread_wait_signal = True
+    worker_core.spread_stop_signal = True
 
     worker_core.push_to_input_queue("wait")
     worker_core.push_to_input_queue("stop")
@@ -520,6 +521,11 @@ def test_run_with_wait_signal(started_worker_core):
         "test_worker",
         "test_worker",
         "wait",
+    )
+    assert worker_core.input_queue.get(timeout=3) == (
+        "test_worker",
+        "test_worker",
+        "stop",
     )
     assert worker_core.input_queue.get(timeout=3) == (
         "test_worker",

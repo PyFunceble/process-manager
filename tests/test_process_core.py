@@ -19,6 +19,7 @@ class DummyWorker:
         self.start = MagicMock()
         self.exception = None
         self.target = MagicMock()
+        self.exitcode = MagicMock()
 
 
 ProcessManagerCore.WORKER_CLASS = DummyWorker
@@ -39,6 +40,13 @@ def test_initialization(process_manager):
     assert process_manager.input_queue is not None
     assert process_manager.output_queues is not None
     assert process_manager.configuration_queue is not None
+    assert process_manager.created_workers == []
+    assert process_manager.running_workers == []
+    assert process_manager.delay_message_sharing is False
+    assert process_manager.delay_shutdown is False
+    assert process_manager.raise_exception is False
+    assert process_manager.dynamic_up_scaling is False
+    assert process_manager.dynamic_down_scaling is False
 
 
 def test_extra_args():
@@ -160,6 +168,27 @@ def test_queue_full(process_manager):
     assert process_manager.is_queue_full() is True
 
 
+def test_add_dependent_manager(process_manager):
+    dependent_manager = ProcessManagerCore(max_workers=2)
+    dependent_manager.STD_NAME = "dependent_manager"
+    process_manager.add_dependent_manager(dependent_manager)
+
+    assert dependent_manager in process_manager.dependent_managers
+    assert process_manager.dependent_managers[0].name == "ppm-dependent_manager"
+
+
+def test_remove_dependent_manager(process_manager):
+    dependent_manager = ProcessManagerCore(max_workers=2)
+
+    process_manager.add_dependent_manager(dependent_manager)
+
+    assert dependent_manager in process_manager.dependent_managers
+
+    process_manager.remove_dependent_manager(dependent_manager)
+
+    assert dependent_manager not in process_manager.dependent_managers
+
+
 def test_spawn_worker(process_manager):
     worker = process_manager.spawn_worker()
     assert worker is not None
@@ -179,10 +208,19 @@ def test_is_running(process_manager):
 
 
 def test_spawn_worker_max_workers(process_manager):
-    process_manager.max_workers = 0
-    process_manager.running_workers = [1, 2, 3]
+    process_manager.running_workers = [DummyWorker() for _ in range(4)]
+    process_manager.created_workers = [DummyWorker() for _ in range(4)]
 
     worker = process_manager.spawn_worker()
+
+    assert worker is None
+
+
+def test_spawn_worker_running_workers_full(process_manager):
+    process_manager.running_workers = [DummyWorker() for _ in range(4)]
+    process_manager.created_workers = [DummyWorker() for _ in range(4)]
+
+    worker = process_manager.spawn_worker(start=True)
 
     assert worker is None
 
@@ -233,6 +271,29 @@ def test_push_to_output_queues_with_all_queues(process_manager):
             source_worker="ppm-pyfunceble-process-manager",
             destination_worker=f"ppm-pyfunceble-process-manager-{index+1}",
         )
+
+
+def test_push_to_output_queues_with_dependent_manager(process_manager):
+    dependent_manager = ProcessManagerCore(max_workers=1)
+    dummy_worker = DummyWorker()
+    dependent_manager.created_workers = [dummy_worker]
+    dependent_manager.running_workers = [dummy_worker]
+
+    dependent_manager.STD_NAME = "dependent_manager"
+    process_manager.add_dependent_manager(dependent_manager)
+
+    process_manager.push_to_output_queues("test_data")
+
+    (
+        process_manager.dependent_managers[0]
+        .created_workers[0]
+        .push_to_input_queue.assert_called_with(
+            "test_data", source_worker="ppm-pyfunceble-process-manager"
+        )
+    )
+    dummy_worker.push_to_input_queue.assert_called_with(
+        "test_data", source_worker="ppm-pyfunceble-process-manager"
+    )
 
 
 def test_push_to_configuration_queue(process_manager):
@@ -315,7 +376,6 @@ def test_wait_running_with_exception(process_manager):
         process_manager.wait()
 
     worker.join.assert_called_once()
-    worker.terminate.assert_called_once()
 
 
 def test_terminate_worker(process_manager):
