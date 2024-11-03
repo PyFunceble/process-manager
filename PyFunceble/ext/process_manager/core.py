@@ -217,6 +217,35 @@ class ProcessManagerCore:
     Whether we have to raise any exception or just store/share it.
     """
 
+    dynamic_up_scaling: Optional[bool] = None
+    """
+    Whether we have to dynamically scale-up the number of workers based on the
+    number of data in the input queue.
+
+    When set to :code:`True`, the system will try to scale the number of workers
+    up based on the number of data in the input queue. This won't however
+    scale down the number of workers once the maximum number of workers is reached
+    because scaling down can be expensive.
+
+    .. warning::
+        This is experimental and should be used with caution.
+    """
+
+    dynamic_down_scaling: Optional[bool] = None
+    """
+    Whether we have to dynamically scale-down the number of workers based on the
+    number of data in the input queue.
+
+    When set to :code:`True`, the system will try to scale the number of workers
+    down based on the number of data in the input queue.
+
+    Please note that scaling down can be expensive and that's why we don't
+    recommend using this feature.
+
+    .. warning::
+        This is experimental and should be used with caution.
+    """
+
     sharing_delay: Optional[float] = None
     """
     The number of seconds to wait before sharing the message.
@@ -230,6 +259,21 @@ class ProcessManagerCore:
     fetch_delay: Optional[float] = None
     """
     The number of seconds to wait before fetching the next dataset.
+    """
+
+    dependent_managers: Optional[List["ProcessManagerCore"]] = None
+    """
+    The process manager that depends on the currently managed process manager.
+
+    When given, the system will interact with the dependent process manager
+    instead of directly interacting with the queue(s).
+
+    .. note::
+        This is optional but when used, it allow us to not only scale the very
+        first process manager but also the dependent ones.
+
+        If you are playing with :ivar:`dynamic_up_scaling` and
+        :ivar:`dynamic_down_scaling`, this is a must to have.
     """
 
     _extra_args: Optional[dict] = None
@@ -265,6 +309,9 @@ class ProcessManagerCore:
         sharing_delay: Optional[float] = None,
         shutdown_delay: Optional[float] = None,
         fetch_delay: Optional[float] = None,
+        dynamic_up_scaling: Optional[bool] = None,
+        dynamic_down_scaling: Optional[bool] = None,
+        dependent_managers: Optional[List["ProcessManagerCore"]] = None,
         **kwargs,
     ):
         self.created_workers = []
@@ -277,6 +324,8 @@ class ProcessManagerCore:
         self.delay_message_sharing = delay_message_sharing or False
         self.delay_shutdown = delay_shutdown or False
         self.raise_exception = raise_exception or False
+        self.dynamic_up_scaling = dynamic_up_scaling or False
+        self.dynamic_down_scaling = dynamic_down_scaling or False
 
         if manager is None:
             self.manager = multiprocessing.Manager()
@@ -284,6 +333,11 @@ class ProcessManagerCore:
             self.manager = manager
 
         self.global_exit_event = self.manager.Event()
+
+        if dependent_managers is None:
+            self.dependent_managers = []
+        else:
+            self.dependent_managers = dependent_managers
 
         if spread_stop_signal is not None:
             self.spread_stop_signal = spread_stop_signal
@@ -363,6 +417,7 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
+
             if not self.created_workers:
                 self.spawn_workers(start=False)
 
@@ -378,7 +433,7 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if self.running:
+            if self.is_running():
                 return self
 
             return func(self, *args, **kwargs)  # pylint: disable=not-callable
@@ -462,6 +517,34 @@ class ProcessManagerCore:
 
         self._max_workers = max(1, value)
 
+    @property
+    def running_workers_full(self) -> bool:
+        """
+        Provides the status of the workers.
+        """
+
+        return len(self.running_workers) >= self.max_workers
+
+    @property
+    def created_workers_full(self) -> bool:
+        """
+        Provides the status of the workers.
+        """
+
+        return len(self.created_workers) >= self.max_workers
+
+    def adjust_workers_to_reality(self) -> "ProcessManagerCore":
+        """
+        Adjust the number of running workers to the reality of the situation.
+        """
+
+        # Adjust the number of running workers so that we don't exceed the maximum
+        # allowed number of workers.
+        self.running_workers = [x for x in self.running_workers if x.exitcode is None]
+        self.created_workers = [x for x in self.created_workers if x.exitcode is None]
+
+        return self
+
     def is_running(self) -> bool:
         """
         Checks if at least one worker is running.
@@ -475,6 +558,34 @@ class ProcessManagerCore:
         """
 
         return self.queue_full
+
+    def add_dependent_manager(
+        self, manager: "ProcessManagerCore"
+    ) -> "ProcessManagerCore":
+        """
+        Adds a dependent manager to the currently managed process manager.
+
+        :param ProcessManagerCore manager:
+            The dependent manager to add.
+        """
+
+        self.dependent_managers.append(manager)
+
+        return self
+
+    def remove_dependent_manager(
+        self, manager: "ProcessManagerCore"
+    ) -> "ProcessManagerCore":
+        """
+        Removes a dependent manager from the currently managed process manager.
+
+        :param ProcessManagerCore manager:
+            The dependent manager to remove.
+        """
+
+        self.dependent_managers.remove(manager)
+
+        return self
 
     @ensure_worker_spawned
     def push_to_input_queue(
@@ -505,7 +616,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.running:
+        if self.is_running():
             workers = self.running_workers
         else:
             workers = self.created_workers
@@ -555,22 +666,29 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.running:
-            workers = self.running_workers
-        else:
-            workers = self.created_workers
-
         source_worker = source_worker or f"ppm-{self.STD_NAME}"
 
-        if all_queues:
-            for worker in workers:
-                worker.push_to_output_queues(
-                    data, source_worker=source_worker, destination_worker=worker.name
+        if not self.dependent_managers:
+            if self.is_running():
+                workers = self.running_workers
+            else:
+                workers = self.created_workers
+
+            if all_queues:
+                for worker in workers:
+                    worker.push_to_output_queues(
+                        data,
+                        source_worker=source_worker,
+                        destination_worker=worker.name,
+                    )
+            elif workers:
+                random.choice(workers).push_to_output_queues(
+                    data, source_worker=source_worker
                 )
-        elif workers:
-            random.choice(workers).push_to_output_queues(
-                data, source_worker=source_worker
-            )
+        else:
+            for manager in self.dependent_managers:
+                # Their input queue is our output queue.
+                manager.push_to_input_queue(data, source_worker=source_worker)
 
         logger.debug("%s-manager | Pushed to output queues: %r", self.STD_NAME, data)
 
@@ -600,7 +718,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        if self.running:
+        if self.is_running():
             workers = self.running_workers
         else:
             workers = self.created_workers
@@ -639,7 +757,10 @@ class ProcessManagerCore:
                 :code:`daemon` attribute.
         """
 
-        if len(self.running_workers) >= self.max_workers:
+        if start and self.running_workers_full:
+            return None
+
+        if not start and self.created_workers_full:
             return None
 
         worker = self.WORKER_CLASS(
@@ -661,7 +782,7 @@ class ProcessManagerCore:
             **self._extra_args,
         )
 
-        if self.running:
+        if not self.is_running():
             # Just to make sure that the worker is aware that it might not not alone.
             worker.concurrent_workers_names = [x.name for x in self.created_workers]
         else:
@@ -677,21 +798,133 @@ class ProcessManagerCore:
 
         return worker
 
-    def spawn_workers(self, *, start: bool = False) -> "ProcessManagerCore":
+    def spawn_workers(
+        self, *, start: bool = False
+    ) -> (
+        "ProcessManagerCore"
+    ):  # pragma: no cover # Scaling tested through human analysis.
         """
-        Spawns and configures the number of workers that we are allowed to create.
+        Spawns and scales the number of workers.
 
         :param bool start:
             Tell us if we have to start the worker after its creation.
+        :param any last_message:
+            The last message that was pushed to the input queue.
         """
 
-        for _ in range(self.max_workers):
-            self.spawn_worker(start=start)
+        self.adjust_workers_to_reality()
+
+        if not self.dynamic_up_scaling:
+
+            if not self.running_workers_full or not self.created_workers_full:
+                for _ in range(self.max_workers):
+                    self.spawn_worker(start=start)
+
+            return self
+
+        logger.debug("%s-manager | SCALING | Entering dynamic scaling.", self.STD_NAME)
+
+        logger.debug(
+            "%s-manager | SCALING | Queue size: %r, Running workers: %r, "
+            "Created workers: %r",
+            self.STD_NAME,
+            self.queue_size,
+            len(self.running_workers),
+            len(self.created_workers),
+        )
+
+        if self.is_running():
+            logger.debug(
+                "%s-manager | SCALING | Entering dynamic scaling for running workers.",
+                self.STD_NAME,
+            )
+
+            logger.debug(
+                "%s-manager | SCALING | (NEW) Running workers: %r",
+                self.STD_NAME,
+                len(self.running_workers),
+            )
+
+            if self.queue_size > len(self.running_workers):
+                if not self.running_workers_full:
+                    # This will be the maximum number of workers that we can create.
+                    available_workers_to_create = self.max_workers - len(
+                        self.running_workers
+                    )
+
+                    # This will be the number of workers that we can create based
+                    # on the number of data in the queue. We try to never exceed
+                    # the maximum number of workers we are allowed to create.
+                    to_create = min(
+                        available_workers_to_create,
+                        self.queue_size - len(self.running_workers) or 1,
+                    )
+
+                    logger.debug(
+                        "%s-manager | SCALING | Spawning %r new workers.",
+                        self.STD_NAME,
+                        to_create,
+                    )
+
+                    while not self.running_workers_full and to_create > 0:
+                        self.spawn_worker(start=True)
+                        to_create -= 1
+
+                return self
+
+            if self.dynamic_down_scaling and len(self.running_workers) > 1:
+                logger.debug(
+                    "%s-manager | SCALING | Scaling down the number of workers by 1.",
+                    self.STD_NAME,
+                )
+
+                worker_to_kill = self.running_workers[-1]
+
+                # We shutdown the last worker by sending the predefined message.
+                worker_to_kill.push_to_input_queue("ppm-immediate-shutdown")
+
+                self.running_workers.remove(worker_to_kill)
+                self.created_workers.remove(worker_to_kill)
+
+                return self
+            return self
+
+        logger.debug(
+            "%s-manager | SCALING | Entering dynamic scaling for created workers.",
+            self.STD_NAME,
+        )
+
+        if not self.created_workers or (
+            not self.created_workers_full
+            and self.queue_size > len(self.created_workers)
+        ):
+            # This will be the maximum number of workers that we can create.
+            available_workers_to_create = self.max_workers - len(self.created_workers)
+
+            # This will be the number of workers that we can create based
+            # on the number of data in the queue. We try to never exceed
+            # the maximum number of workers we are allowed to create.
+            to_create = min(
+                available_workers_to_create,
+                self.queue_size - len(self.created_workers) or 1,
+            )
+
+            logger.debug(
+                "%s-manager | SCALING | Spawning %r new workers.",
+                self.STD_NAME,
+                to_create,
+            )
+
+            while (
+                not self.created_workers or not self.created_workers_full
+            ) and to_create > 0:
+                self.spawn_worker(start=start)
+                to_create -= 1
 
         return self
 
     def push_stop_signal(
-        self, *, source_worker: Optional[str] = None
+        self, *, source_worker: Optional[str] = None, all_workers: bool = True
     ) -> "ProcessManagerCore":
         """
         Sends the stop signal to the worker(s).
@@ -699,9 +932,13 @@ class ProcessManagerCore:
         :param str source_worker:
             The name to use to identify the worker or process that is sending
             the data.
+        :param bool all_workers:
+            Whether we have to spread the stop signal to all workers.
         """
 
-        self.push_to_input_queue("stop", source_worker=source_worker, all_queues=True)
+        self.push_to_input_queue(
+            "stop", source_worker=source_worker, all_queues=all_workers
+        )
 
         return self
 
@@ -755,8 +992,14 @@ class ProcessManagerCore:
         workers = list(set(self.running_workers + self.created_workers))
 
         if workers:
-            # Set the global exit event to tell the workers to stop.
-            random.choice(workers).global_exit_event.set()
+            random_worker = random.choice(workers)
+
+            if (
+                not random_worker.global_exit_event.is_set()
+            ):  # pragma: no cover # Safety.
+                # Set the global exit event to tell the workers to stop.
+                random_worker.global_exit_event.set()
+                self.push_stop_signal()
 
         for worker in workers:
             if not worker.is_alive():
@@ -785,7 +1028,6 @@ class ProcessManagerCore:
 
             try:
                 worker.join()
-                worker.terminate()
             except KeyboardInterrupt:  # pragma: no cover
                 pass
 
@@ -796,7 +1038,7 @@ class ProcessManagerCore:
                 worker_error, trace = worker.exception
 
                 self.terminate()
-                logging.critical(
+                logger.critical(
                     "%s-manager | Worker %r raised an exception:\n%s",
                     self.STD_NAME,
                     worker.name,
@@ -831,7 +1073,7 @@ class ProcessManagerCore:
                 worker_error, trace = worker.exception
 
                 self.terminate()
-                logging.critical(
+                logger.critical(
                     "%s-manager | Worker %r raised an exception:\n%s",
                     self.STD_NAME,
                     worker.name,
@@ -852,8 +1094,8 @@ class ProcessManagerCore:
         return self
 
     @ensure_worker_class_is_set
-    @ensure_worker_spawned
     @ignore_if_running
+    @ensure_worker_spawned
     def start(self) -> "ProcessManagerCore":
         """
         Starts the worker(s).

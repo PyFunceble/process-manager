@@ -116,7 +116,11 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade .
 
-      - name: Run example
+      - name: Run example (without dynamic scaling)
         run: |
           python examples/data_filter.py
+
+      - name: Run example (with dynamic scaling)
+        run: |
+          python examples/data_filter.py dynamic-scaling
 

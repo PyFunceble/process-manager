@@ -52,6 +52,7 @@ License:
     limitations under the License.
 """
 
+import sys
 from typing import Any
 
 from PyFunceble.ext.process_manager import ProcessManagerCore, WorkerCore
@@ -105,15 +106,21 @@ class DataPrinterWorker(WorkerCore):
 
 
 class DataFilterManager(ProcessManagerCore):
+    STD_NAME = "data-filter"
     WORKER_CLASS = DataFilterWorker
 
 
 class DataPrinterManager(ProcessManagerCore):
+    STD_NAME = "data-printer"
     WORKER_CLASS = DataPrinterWorker
 
 
 if __name__ == "__main__":
-    # By default, our interfaces will log to the console.
+    dynamic_scaling = len(sys.argv) > 1
+
+    # By default, our interfaces won't log anything. If you need to see or analyze
+    # what is going on under the hood, uncomment the following
+    # logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
 
     data_to_filter = [
         "hello",
@@ -123,9 +130,18 @@ if __name__ == "__main__":
         None,  # This will be filtered out because it's not a string.
     ]
 
+    if dynamic_scaling:
+        # Add more data so that we can see the workers in action.
+        data_to_filter += [f"Hello, {i}!" for i in range(1000 + 1)]
+
     # Configure the manager to generate 2 workers/processes.
     data_filter_manager = DataFilterManager(
-        max_workers=2, generate_output_queue=True, output_queue_count=1
+        max_workers=1,
+        generate_output_queue=True,
+        output_queue_count=1,
+        dynamic_up_scaling=True,
+        dynamic_down_scaling=dynamic_scaling,
+        spread_stop_signal=dynamic_scaling,
     )
     # Configure the manager to generate 1 worker/process.
     data_printer_manager = DataPrinterManager(
@@ -133,6 +149,9 @@ if __name__ == "__main__":
         input_queue=data_filter_manager.output_queues[0],
         generate_output_queue=False,
     )
+
+    # Build dependencies, so that we can use scaling at it best.
+    data_filter_manager.add_dependent_manager(data_printer_manager)
 
     # Start the manager.
     data_filter_manager.start()
