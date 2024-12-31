@@ -122,6 +122,7 @@ def get_version():
 
     return extracted
 
+
 def get_long_description():  # pragma: no cover
     """
     This function return the long description.
@@ -170,5 +171,4 @@ if __name__ == "__main__":
             "Programming Language :: Python :: 3",
             "License :: OSI Approved",
         ],
-        test_suite="setup._test_suite",
     )

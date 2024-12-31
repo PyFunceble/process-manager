@@ -440,6 +440,27 @@ class ProcessManagerCore:
 
         return wrapper
 
+    def relink_queues_after(func: Callable[..., Any]) -> Callable[..., Any]:
+        """
+        Decorator which ensures that the input queue of the dependent manager is
+        the output queue of the current manager.
+        """
+
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            result = func(self, *args, **kwargs)  # pylint: disable=not-callable
+
+            if self.output_queues and self.dependent_managers:
+                for index, manager in enumerate(self.dependent_managers):
+                    try:
+                        manager.input_queue = self.output_queues[index]
+                    except IndexError:
+                        manager.input_queue = self.output_queues[-1]
+
+            return result
+
+        return wrapper
+
     @property
     def name(self) -> str:
         """
@@ -559,6 +580,7 @@ class ProcessManagerCore:
 
         return self.queue_full
 
+    @relink_queues_after
     def add_dependent_manager(
         self, manager: "ProcessManagerCore"
     ) -> "ProcessManagerCore":
@@ -573,6 +595,7 @@ class ProcessManagerCore:
 
         return self
 
+    @relink_queues_after
     def remove_dependent_manager(
         self, manager: "ProcessManagerCore"
     ) -> "ProcessManagerCore":

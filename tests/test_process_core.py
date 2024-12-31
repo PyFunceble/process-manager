@@ -177,6 +177,56 @@ def test_add_dependent_manager(process_manager):
     assert process_manager.dependent_managers[0].name == "ppm-dependent_manager"
 
 
+def test_relink_queues(process_manager):
+    process_manager.output_queues = [MagicMock()]
+
+    dependent_manager = ProcessManagerCore(max_workers=2, generate_input_queue=False)
+    dependent_manager.STD_NAME = "dependent_manager"
+
+    assert dependent_manager.input_queue is None
+
+    process_manager.add_dependent_manager(dependent_manager)
+    assert dependent_manager.input_queue == process_manager.output_queues[0]
+
+
+def test_relink_queues_with_no_output_queues(process_manager):
+    process_manager.output_queues = []
+
+    dependent_manager = ProcessManagerCore(max_workers=2, generate_input_queue=False)
+    dependent_manager.STD_NAME = "dependent_manager"
+
+    assert dependent_manager.input_queue is None
+
+    process_manager.add_dependent_manager(dependent_manager)
+    assert dependent_manager.input_queue is None
+
+
+def test_relink_queues_with_more_dependencies_than_output_queues(process_manager):
+    process_manager.output_queues = [MagicMock()]
+
+    dependent_manager = ProcessManagerCore(max_workers=2, generate_input_queue=False)
+    dependent_manager.STD_NAME = "dependent_manager"
+
+    assert dependent_manager.input_queue is None
+
+    process_manager.add_dependent_manager(dependent_manager)
+
+    assert dependent_manager.input_queue == process_manager.output_queues[0]
+
+    new_dependent_manager = ProcessManagerCore(
+        max_workers=2, generate_input_queue=False
+    )
+    new_dependent_manager.STD_NAME = "new_dependent_manager"
+
+    assert new_dependent_manager.input_queue is None
+
+    process_manager.add_dependent_manager(new_dependent_manager)
+
+    assert new_dependent_manager.input_queue == process_manager.output_queues[0]
+
+    process_manager.add_dependent_manager(new_dependent_manager)
+
+
 def test_remove_dependent_manager(process_manager):
     dependent_manager = ProcessManagerCore(max_workers=2)
 
