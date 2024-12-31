@@ -418,7 +418,11 @@ class ProcessManagerCore:
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
 
-            if not self.created_workers or self.dynamic_up_scaling or self.dynamic_down_scaling:
+            if (
+                not self.created_workers
+                or self.dynamic_up_scaling
+                or self.dynamic_down_scaling
+            ):
                 self.spawn_workers(start=False)
 
             return func(self, *args, **kwargs)  # pylint: disable=not-callable
