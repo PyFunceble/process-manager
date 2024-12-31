@@ -763,7 +763,7 @@ class ProcessManagerCore:
         return self
 
     def spawn_worker(
-        self, *, start: bool = False, daemon: bool = None
+        self, *, start: bool = False, daemon: bool = None, force: bool = False
     ) -> Optional[WorkerCore]:
         """
         Spawns and configures a (single) new worker.
@@ -776,12 +776,18 @@ class ProcessManagerCore:
             .. note::
                 If this is not set, we will use the value of the
                 :code:`daemon` attribute.
+        :param bool force:
+            Tell us if we have to force the spawning of the worker.
+
+            .. note::
+                This is useful when we want to spawn a worker even if the
+                maximum number of workers is reached.
         """
 
-        if start and self.running_workers_full:
+        if start and self.running_workers_full and not force:
             return None
 
-        if not start and self.created_workers_full:
+        if not start and self.created_workers_full and not force:
             return None
 
         worker = self.WORKER_CLASS(
