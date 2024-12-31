@@ -274,6 +274,14 @@ def test_spawn_worker_running_workers_full(process_manager):
 
     assert worker is None
 
+def test_spawn_worker_running_workers_full_with_force(process_manager):
+    process_manager.running_workers = [DummyWorker() for _ in range(4)]
+    process_manager.created_workers = [DummyWorker() for _ in range(4)]
+
+    worker = process_manager.spawn_worker(force=True)
+
+    assert worker is not None
+    assert worker.name == "ppm-pyfunceble-process-manager-5"
 
 def test_push_to_input_queue(process_manager):
     process_manager.spawn_worker()
