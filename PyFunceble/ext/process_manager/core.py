@@ -417,7 +417,9 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            self.spawn_workers(start=False)
+
+            if not self.created_workers:
+                self.spawn_workers(start=False)
 
             return func(self, *args, **kwargs)  # pylint: disable=not-callable
 
@@ -842,6 +844,7 @@ class ProcessManagerCore:
         self.adjust_workers_to_reality()
 
         if not self.dynamic_up_scaling:
+
             if not self.running_workers_full or not self.created_workers_full:
                 for _ in range(self.max_workers):
                     self.spawn_worker(start=start)
