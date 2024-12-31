@@ -121,8 +121,8 @@ if __name__ == "__main__":
 
     # By default, our interfaces won't log anything. If you need to see or analyze
     # what is going on under the hood, uncomment the following
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
+    # logging.getLogger("PyFunceble.ext.process_manager").setLevel(logging.DEBUG)
 
     data_to_filter = [
         "hello",

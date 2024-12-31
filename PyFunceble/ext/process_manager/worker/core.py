@@ -234,6 +234,14 @@ class WorkerCore(multiprocessing.Process):
     :code:`kwargs` parameter.
     """
 
+    _all_args: Optional[dict] = None
+    """
+    Exposes all arguments that were passed to the worker.
+
+    This instance exists to allow child classes to access the arguments that were
+    passed to the worker.
+    """
+
     def __init__(
         self,
         name: str,
@@ -295,6 +303,27 @@ class WorkerCore(multiprocessing.Process):
             self.fetch_delay = fetch_delay
 
         self._extra_args = kwargs
+
+        self._all_args = {
+            "name": name,
+            "global_exit_event": global_exit_event,
+            "input_queue": input_queue,
+            "output_queues": output_queues,
+            "configuration_queue": configuration_queue,
+            "daemon": daemon,
+            "spread_stop_signal": spread_stop_signal,
+            "spread_wait_signal": spread_wait_signal,
+            "delay_message_sharing": delay_message_sharing,
+            "delay_shutdown": delay_shutdown,
+            "raise_exception": raise_exception,
+            "targeted_processing": targeted_processing,
+            "sharing_delay": sharing_delay,
+            "shutdown_delay": shutdown_delay,
+            "fetch_delay": fetch_delay,
+            "concurrent_workers_names": concurrent_workers_names,
+            "dependent_workers_names": dependent_workers_names,
+            **kwargs,
+        }
 
         super().__init__(name=name, daemon=daemon)
 
