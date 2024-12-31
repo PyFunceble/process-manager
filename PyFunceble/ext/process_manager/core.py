@@ -67,7 +67,6 @@ from typing import Any, Callable, List, Optional
 from PyFunceble.ext.process_manager.worker.core import WorkerCore
 
 logger = logging.getLogger("PyFunceble.ext.process_manager")
-logger.setLevel(logging.CRITICAL)
 
 
 class ProcessManagerCore:

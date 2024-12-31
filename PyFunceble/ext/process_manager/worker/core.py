@@ -64,7 +64,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
 logger = logging.getLogger("PyFunceble.ext.process_manager")
-logger.setLevel(logging.CRITICAL)
 
 
 class WorkerCore(multiprocessing.Process):
