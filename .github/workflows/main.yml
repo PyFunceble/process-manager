@@ -179,6 +179,11 @@ jobs:
 
     runs-on: "${{ matrix.os }}"
 
+    environment: release
+    permissions:
+      id-token: write
+      attestations: write
+
     strategy:
       fail-fast: false
       matrix:
