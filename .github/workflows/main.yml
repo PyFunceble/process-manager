@@ -220,7 +220,7 @@ jobs:
 
       - name: Publish 📦 to the AUR - if necessary
         env:
-          GIT_SSH_COMMAND: "ssh -i ~/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+          GIT_SSH_COMMAND: "ssh -v -i ~/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         run: |
           aurRepoDir=/tmp/pyfunceble-process-manager
           githubRepoDir="${PWD}"
