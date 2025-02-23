@@ -214,14 +214,13 @@ jobs:
       - name: Store the SSH key
         run: |
           echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_rsa
-          ssh -i ~/.ssh/id_rsa aur@aur.archlinux.org
 
       - uses: actions/checkout@v4
         name: Clone repository
 
       - name: Publish 📦 to the AUR - if necessary
         env:
-          GIT_SSH_COMMAND: "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+          GIT_SSH_COMMAND: "ssh -i ~/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         run: |
           aurRepoDir=/tmp/pyfunceble-process-manager
           githubRepoDir="${PWD}"
