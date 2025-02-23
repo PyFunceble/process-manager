@@ -197,6 +197,7 @@ jobs:
       - name: Store the SSH key
         run: |
           echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_rsa
+          ssh -i ~/.ssh/id_rsa aur@aur.archlinux.org
 
       - name: Get time for cache
         id: cache_time
