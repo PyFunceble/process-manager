@@ -196,7 +196,7 @@ jobs:
     steps:
       - name: Store the SSH key
         run: |
-          echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin /root/.ssh/id_rsa
+          echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_rsa
 
       - name: Get time for cache
         id: cache_time
