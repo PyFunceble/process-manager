@@ -194,10 +194,6 @@ jobs:
       image: archlinux
 
     steps:
-      - name: Store the SSH key
-        run: |
-          echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_rsa
-          ssh -i ~/.ssh/id_rsa aur@aur.archlinux.org
 
       - name: Get time for cache
         id: cache_time
@@ -214,6 +210,11 @@ jobs:
         run: |
           pacman -Syu --needed --noconfirm && \
           pacman -S --needed --noconfirm git binutils pacman-contrib openssh rsync python python-setuptools jq
+
+      - name: Store the SSH key
+        run: |
+          echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_rsa
+          ssh -i ~/.ssh/id_rsa aur@aur.archlinux.org
 
       - uses: actions/checkout@v4
         name: Clone repository
