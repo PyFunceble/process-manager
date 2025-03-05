@@ -417,7 +417,7 @@ class ProcessManagerCore:
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
 
-            if (
+            if not self.is_terminating() and (
                 not self.created_workers
                 or self.dynamic_up_scaling
                 or self.dynamic_down_scaling
