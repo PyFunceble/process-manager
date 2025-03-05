@@ -511,12 +511,10 @@ def test_terminate_no_running_workers(process_manager):
     process_manager.global_exit_event.clear()
 
     process_manager.terminate()
-    process_manager.created_workers[0].terminate.assert_not_called()
-    process_manager.created_workers[0].is_alive.assert_called_once()
     process_manager.push_stop_signal.assert_called()
     assert process_manager.global_exit_event.is_set() is True
 
-    assert len(process_manager.created_workers) == 1
+    assert len(process_manager.created_workers) == 0
     assert len(process_manager.running_workers) == 0
 
 

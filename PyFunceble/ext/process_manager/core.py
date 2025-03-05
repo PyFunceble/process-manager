@@ -443,6 +443,21 @@ class ProcessManagerCore:
 
         return wrapper
 
+    def ignore_if_terminating(func: Callable[..., Any]) -> Callable[..., Any]:
+        """
+        Decorator which ensures that the decorated method is ignored if we are
+        exiting/terminating. (cf: self.global_exit_event is set)
+        """
+
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.is_terminating():
+                return self
+
+            return func(self, *args, **kwargs)  # pylint: disable=not-callable
+
+        return wrapper
+
     def relink_queues_after(func: Callable[..., Any]) -> Callable[..., Any]:
         """
         Decorator which ensures that the input queue of the dependent manager is
@@ -517,6 +532,14 @@ class ProcessManagerCore:
         return any(x.is_alive() for x in self.running_workers)
 
     @property
+    def terminating(self) -> bool:
+        """
+        Provides the termination status of the worker(s).
+        """
+
+        return self.global_exit_event.is_set()
+
+    @property
     def max_workers(self) -> int:
         """
         Provides the maximum number of workers that we are allowed to create.
@@ -575,6 +598,13 @@ class ProcessManagerCore:
         """
 
         return self.running
+
+    def is_terminating(self) -> bool:
+        """
+        Checks if the worker is terminating.
+        """
+
+        return self.terminating
 
     def is_queue_full(self) -> bool:
         """
@@ -1033,6 +1063,7 @@ class ProcessManagerCore:
 
         return self
 
+    @ignore_if_terminating
     def terminate(self) -> "ProcessManagerCore":
         """
         Terminates the worker(s).
@@ -1040,7 +1071,7 @@ class ProcessManagerCore:
 
         logger.debug("%s-manager | Terminating all workers.", self.STD_NAME)
 
-        if not self.global_exit_event.is_set():
+        if not self.is_terminating():
             # Set the global exit event to tell the workers to stop.
             self.global_exit_event.set()
 
@@ -1048,6 +1079,8 @@ class ProcessManagerCore:
 
         if workers:
             self.push_stop_signal()
+            # We still have to wait for the workers to terminate.
+            self.wait()
 
         for worker in workers:
             if not worker.is_alive():
@@ -1080,11 +1113,22 @@ class ProcessManagerCore:
             except KeyboardInterrupt:  # pragma: no cover
                 pass
 
-            self.running_workers.remove(worker)
-            self.created_workers.remove(worker)
+            try:
+                self.running_workers.remove(worker)
+            except ValueError:  # pragma: no cover  # safety
+                pass
+
+            try:
+                self.created_workers.remove(worker)
+            except ValueError:  # pragma: no cover  # safety
+                pass
 
             if worker.exception:
-                worker_error, trace = worker.exception
+                try:
+                    worker_error, trace = worker.exception
+                except ValueError:  # pragma: no cover  # safety
+                    # No exception - actually
+                    continue
 
                 self.terminate()
                 logger.critical(
@@ -1119,7 +1163,11 @@ class ProcessManagerCore:
             self.created_workers.remove(worker)
 
             if worker.exception:
-                worker_error, trace = worker.exception
+                try:
+                    worker_error, trace = worker.exception
+                except ValueError:
+                    # No exception - actually
+                    continue
 
                 self.terminate()
                 logger.critical(
