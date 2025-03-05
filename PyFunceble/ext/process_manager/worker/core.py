@@ -158,6 +158,20 @@ class WorkerCore(multiprocessing.Process):
     Stores and exposes the names of the dependent workers.
     This should be the name of the workers that reads from our output queues -
     which is the input queue for them.
+
+    .. note::
+        Defining this attribute unlocks some of the dependencies features.
+    """
+
+    controlling_workers_name: Optional[str] = None
+    """
+    Stores and exposes the name of the controlling worker.
+
+    This should be the name of the workers that sends to our input queue -
+    which is one of the output queues for them.
+
+    .. note::
+        Not implemented yet.
     """
 
     targeted_processing: Optional[bool] = None
@@ -261,6 +275,7 @@ class WorkerCore(multiprocessing.Process):
         fetch_delay: Optional[float] = None,
         concurrent_workers_names: Optional[List[str]] = None,
         dependent_workers_names: Optional[List[str]] = None,
+        controlling_workers_name: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         self.name = name
@@ -291,6 +306,9 @@ class WorkerCore(multiprocessing.Process):
 
         if dependent_workers_names is not None:
             self.dependent_workers_names = dependent_workers_names
+
+        if controlling_workers_name is not None:
+            self.controlling_workers_name = controlling_workers_name
 
         if sharing_delay is not None:
             self.sharing_delay = sharing_delay
@@ -1035,9 +1053,12 @@ class WorkerCore(multiprocessing.Process):
                             self.name,
                         )
                     else:
+                        logger.debug(
+                            "%s | Stop signal received. Scheduling shutdown.",
+                        )
                         self.exit_event.set()
 
-                    if self.spread_stop_signal:
+                    if self.spread_stop_signal or self.dependent_workers_names:
                         # We have to spread the stop signal to everyone.
                         self.share_stop_signal(
                             overall=self.spread_stop_signal,

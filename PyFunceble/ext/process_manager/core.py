@@ -275,6 +275,25 @@ class ProcessManagerCore:
         :ivar:`dynamic_down_scaling`, this is a must to have.
     """
 
+    controlling_manager: Optional["ProcessManagerCore"] = None
+    """
+    The process manager that controls the currently managed process manager.
+
+    When given, the system will interact with the controlling process manager
+    instead of directly interacting with the queue(s).
+
+    .. note::
+        This is optional but when used, it allow us to not only scale the very
+        first process manager but also the controlled ones.
+
+        If you are playing with :ivar:`dynamic_up_scaling` and
+        :ivar:`dynamic_down_scaling`, this is a must to have.
+
+    .. warning::
+        You are not expected to set this manually. This is set automatically
+        when you use the :meth:`add_dependent_manager` method.
+    """
+
     _extra_args: Optional[dict] = None
     """
     The extra arguments that were passed to the worker through the
@@ -624,6 +643,7 @@ class ProcessManagerCore:
             The dependent manager to add.
         """
 
+        manager.controlling_manager = self
         self.dependent_managers.append(manager)
 
         return self
@@ -841,6 +861,10 @@ class ProcessManagerCore:
             sharing_delay=self.sharing_delay,
             shutdown_delay=self.shutdown_delay,
             fetch_delay=self.fetch_delay,
+            dependent_workers_names=[x.name for x in self.dependent_managers],
+            controlling_workers_name=(
+                self.controlling_manager.name if self.controlling_manager else None
+            ),
             **self._extra_args,
         )
 
