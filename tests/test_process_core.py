@@ -509,7 +509,13 @@ def test_terminate_hard(process_manager):
 
     assert len(process_manager.created_workers) == 2
 
+    assert process_manager.global_exit_event.is_set() is False
+    assert process_manager.terminating_event.is_set() is False
+
     process_manager.terminate(mode="hard")
+
+    assert process_manager.global_exit_event.is_set() is True
+    assert process_manager.terminating_event.is_set() is True
 
     # In the hard mode, we terminate all workers without waiting for them to finish.
     worker1.terminate.assert_called_once()

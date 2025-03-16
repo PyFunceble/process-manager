@@ -1152,6 +1152,9 @@ class ProcessManagerCore:
                 "%s-manager | Forcefully terminating all workers.", self.STD_NAME
             )
 
+            # Instruct the workers to terminate themselves.
+            self.global_exit_event.set()
+
             for worker in set(self.running_workers + self.created_workers):
                 self.terminate_worker(worker)
 
