@@ -914,11 +914,8 @@ class ProcessManagerCore:
         self.adjust_workers_to_reality()
 
         if not self.dynamic_up_scaling:
-
-            if not self.running_workers_full or not self.created_workers_full:
-                for _ in range(self.max_workers):
-                    self.spawn_worker(start=start)
-
+            while not self.running_workers_full and not self.created_workers_full:
+                self.spawn_worker(start=start)
             return self
 
         logger.debug("%s-manager | SCALING | Entering dynamic scaling.", self.STD_NAME)
