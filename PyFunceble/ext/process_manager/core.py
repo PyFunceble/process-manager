@@ -208,7 +208,12 @@ class ProcessManagerCore:
     Whether we have to delay the shutdown of the worker.
 
     .. note::
-        This is useful when you just want to be able to
+        This is useful when you just want to be able to stop the worker but
+        not immediately.
+
+    .. warning::
+        When set to :code:`True`, the worker will wait for :prop:`shutdown_delay`
+        seconds before shutting down.
     """
 
     raise_exception: Optional[bool] = None
@@ -604,8 +609,7 @@ class ProcessManagerCore:
         Adjust the number of running workers to the reality of the situation.
         """
 
-        # Adjust the number of running workers so that we don't exceed the maximum
-        # allowed number of workers.
+        # Adjust to make sure to remove the workers that are not running anymore.
         self.running_workers = [x for x in self.running_workers if x.exitcode is None]
         self.created_workers = [x for x in self.created_workers if x.exitcode is None]
 
@@ -1096,7 +1100,8 @@ class ProcessManagerCore:
         logger.debug("%s-manager | Terminating all workers.", self.STD_NAME)
 
         if not self.is_terminating():
-            # Set the global exit event to tell the workers to stop.
+            # Set the global exit event to tell the workers to stop as soon as
+            # they can.
             self.global_exit_event.set()
 
         workers = list(set(self.running_workers + self.created_workers))

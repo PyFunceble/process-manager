@@ -197,7 +197,12 @@ class WorkerCore(multiprocessing.Process):
     Whether we have to delay the shutdown of the worker.
 
     .. note::
-        This is useful when you just want to be able to
+        This is useful when you just want to be able to stop the worker but
+        not immediately.
+
+    .. warning::
+        When set to :code:`True`, the worker will wait for :prop:`shutdown_delay`
+        seconds before shutting down.
     """
 
     raise_exception: Optional[bool] = None
