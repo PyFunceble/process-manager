@@ -960,6 +960,14 @@ class WorkerCore(multiprocessing.Process):
                     self.take_a_break(mode="shutdown")
                     break
 
+                if shutdown_time_reached():  # pragma: no cover
+                    logger.debug(
+                        "%s | Shutdown time reached. Stopping worker.", self.name
+                    )
+
+                    self.exit_event.set()
+                    continue
+
                 if not self.perform_external_preflight_checks():  # pragma: no cover
                     logger.debug(
                         "%s | Preflight checks failed. Reiterating the "
@@ -967,14 +975,6 @@ class WorkerCore(multiprocessing.Process):
                         self.name,
                     )
                     self.take_a_break()
-                    continue
-
-                if shutdown_time_reached():  # pragma: no cover
-                    logger.debug(
-                        "%s | Shutdown time reached. Stopping worker.", self.name
-                    )
-
-                    self.exit_event.set()
                     continue
 
                 # We are now ready to process the data.
