@@ -1077,6 +1077,9 @@ class WorkerCore(multiprocessing.Process):
                         "%s | Stop signal received. Scheduling shutdown.",
                     )
                     self.exit_event.set()
+                    # Make sure that none of the concurrent workers are stuck or
+                    # left behind.
+                    self.share_stop_signal(overall=True, input_queue_only=True)
 
                     continue
 

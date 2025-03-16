@@ -487,6 +487,11 @@ def test_run_with_data_processing(started_worker_core):
         None,
         "processed_test_data",
     )
+    assert worker_core.input_queue.get(timeout=3) == (
+        "test_worker",
+        "test_worker",
+        "__stop__",
+    )
     assert worker_core.output_queues[0].empty()
     assert worker_core.input_queue.empty()
 
@@ -515,6 +520,11 @@ def test_run_with_wait_signal(started_worker_core):
         "test_worker",
         "test_worker",
         "__wait__",
+    )
+    assert worker_core.input_queue.get(timeout=3) == (
+        "test_worker",
+        "test_worker",
+        "__stop__",
     )
     assert worker_core.input_queue.empty()
     assert worker_core.exit_event.is_set() is True
