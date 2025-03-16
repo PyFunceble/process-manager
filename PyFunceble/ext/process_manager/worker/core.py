@@ -667,9 +667,11 @@ class WorkerCore(multiprocessing.Process):
 
         if overall:
             if input_queue_only or not output_queue_only:
+                # send to ourself - to make sure that we are not stuck.
                 self.push_to_input_queue(message, destination_worker=self.name)
 
             if input_queue_only or not output_queue_only:
+                # send to our concurrent workers.
                 for worker_name in self.concurrent_workers_names:
                     if self.delay_message_sharing or apply_delay:
                         time.sleep(self.sharing_delay)
@@ -737,7 +739,7 @@ class WorkerCore(multiprocessing.Process):
         apply_delay: bool = False,
     ) -> "WorkerCore":
         """
-        Shares a message to all output queues.
+        Shares a message to all input or output queues.
 
         The message is a stop message.
 
