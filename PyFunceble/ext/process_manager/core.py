@@ -755,7 +755,7 @@ class ProcessManagerCore:
                 is sent to the same worker multiple times.
         """
 
-        source_worker = source_worker or f"ppm-{self.STD_NAME}"
+        source_worker = source_worker or f"ppm-{self.STD_NAME}-manager"
 
         if not self.dependent_managers:
             if self.is_running():
@@ -812,7 +812,7 @@ class ProcessManagerCore:
         else:
             workers = self.created_workers
 
-        source_worker = source_worker or f"ppm-{self.STD_NAME}"
+        source_worker = source_worker or f"ppm-{self.STD_NAME}-manager"
 
         if all_queues:
             for worker in workers:
