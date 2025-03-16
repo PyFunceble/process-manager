@@ -143,6 +143,7 @@ if __name__ == "__main__":
         output_queue_count=1,
         dynamic_up_scaling=dynamic_scaling,
         dynamic_down_scaling=dynamic_scaling,
+        spread_stop_signal=True,
     )
     # Configure the manager to generate 1 worker/process.
     data_printer_manager = DataPrinterManager(
@@ -164,18 +165,12 @@ if __name__ == "__main__":
         print("Controller pushed:", data)
         data_filter_manager.push_to_input_queue(data)
 
-    # Push the stop signal at the end of the input queue to stop the workers.
-    # Note:
-    #   As the data printer is a dependency of the data filter, we don't need to
-    #   stop it explicitly. It will be stopped automatically when the data filter
-    #   manager stops.
+    # If terminate the manager and all the managed workers after waiting for the
+    # workers to finish processing the data.
     #
-    data_filter_manager.push_stop_signal()
-    # Wait for the manager to finish processing the data.
-    data_filter_manager.wait()
-
-    # If we want to terminate the manager and all workers, we can call the
-    # terminate method.
-    data_filter_manager.terminate()
+    # Note: In soft mode, the manager will wait for the workers to finish processing
+    # the data before terminating them. In hard mode, the manager will terminate the
+    # workers immediately.
+    data_filter_manager.terminate(mode="soft")
 
     print("Data filtered successfully.")
