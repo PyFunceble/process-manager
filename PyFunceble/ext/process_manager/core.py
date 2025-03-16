@@ -221,6 +221,12 @@ class ProcessManagerCore:
     Whether we have to raise any exception or just store/share it.
     """
 
+    shutdown_on_exception: Optional[bool] = None
+    """
+    Whether we have to shutdown every worker as soon as one of the workers
+    raised an exception.
+    """
+
     dynamic_up_scaling: Optional[bool] = None
     """
     Whether we have to dynamically scale-up the number of workers based on the
@@ -328,6 +334,7 @@ class ProcessManagerCore:
         delay_message_sharing: bool = None,
         delay_shutdown: bool = None,
         raise_exception: bool = None,
+        shutdown_on_exception: bool = None,
         targeted_processing: bool = None,
         sharing_delay: Optional[float] = None,
         shutdown_delay: Optional[float] = None,
@@ -347,6 +354,7 @@ class ProcessManagerCore:
         self.delay_message_sharing = delay_message_sharing or False
         self.delay_shutdown = delay_shutdown or False
         self.raise_exception = raise_exception or False
+        self.shutdown_on_exception = shutdown_on_exception or False
         self.dynamic_up_scaling = dynamic_up_scaling or False
         self.dynamic_down_scaling = dynamic_down_scaling or False
 
@@ -1178,7 +1186,11 @@ class ProcessManagerCore:
                     # No exception - actually
                     continue
 
-                self.terminate()
+                if self.shutdown_on_exception:
+                    # We terminate everything that we are controlling as soon as
+                    # possible.
+                    self.terminate()
+
                 logger.critical(
                     "%s-manager | Worker %r raised an exception:\n%s",
                     self.STD_NAME,
@@ -1199,9 +1211,6 @@ class ProcessManagerCore:
                 self.STD_NAME,
                 self.running_workers,
             )
-
-        # Double safety.
-        self.terminate()
 
         return self
 
