@@ -963,6 +963,7 @@ class ProcessManagerCore:
                     )
 
                     while not self.running_workers_full and to_create > 0:
+                        # Note: we start immediately because we are scaling up.
                         self.spawn_worker(start=True)
                         to_create -= 1
 
@@ -974,10 +975,12 @@ class ProcessManagerCore:
                     self.STD_NAME,
                 )
 
-                worker_to_kill = self.running_workers[-1]
+                worker_to_kill = self.running_workers[0]
 
-                # We shutdown the last worker by sending the predefined message.
-                worker_to_kill.push_to_input_queue("__immediate_shutdown__")
+                # We shutdown the first worker that we can find.
+                worker_to_kill.push_to_input_queue(
+                    "__immediate_shutdown__", destination_worker=worker_to_kill.name
+                )
 
                 self.running_workers.remove(worker_to_kill)
                 self.created_workers.remove(worker_to_kill)
@@ -1039,7 +1042,7 @@ class ProcessManagerCore:
         return self
 
     def share_stop_signal(
-        self, *, source_worker: Optional[str] = None
+        self, *, source_worker: Optional[str] = None, all_workers: bool = False
     ) -> "ProcessManagerCore":
         """
         Shares the stop signal to the worker(s).
@@ -1047,10 +1050,12 @@ class ProcessManagerCore:
         :param str source_worker:
             The name to use to identify the worker or process that is sending
             the data.
+        :param bool all_workers:
+            Whether we have to spread the stop signal to all workers.
         """
 
         self.push_to_output_queues(
-            "__stop__", source_worker=source_worker, all_queues=self.spread_stop_signal
+            "__stop__", source_worker=source_worker, all_queues=all_workers
         )
 
         return self
@@ -1098,36 +1103,50 @@ class ProcessManagerCore:
         return self
 
     @ignore_if_terminating
-    def terminate(self) -> "ProcessManagerCore":
+    def terminate(self, *, mode: str = "soft") -> "ProcessManagerCore":
         """
         Terminates the worker(s).
+
+        :param str mode:
+            The mode to use to terminate the worker(s).
+
+            .. note::
+                - If set to :code:`soft`, we will send a stop signal to
+                  the worker(s) and wait for them to terminate.
+
+                - If set to :code:`hard`, we will terminate the worker(s)
+                  directly without waiting for them to terminate.
         """
 
         logger.debug("%s-manager | Terminating all workers.", self.STD_NAME)
+
+        if mode not in ("soft", "hard"):
+            raise ValueError(f"<mode> should be 'soft' or 'hard', {mode} given.")
 
         if not self.is_terminating():
             # Set the global exit event to tell the workers to stop as soon as
             # they can.
             self.global_exit_event.set()
 
-        workers = list(set(self.running_workers + self.created_workers))
+        if mode == "hard":
+            logging.debug(
+                "%s-manager | Forcefully terminating all workers.", self.STD_NAME
+            )
 
-        if workers:
-            self.push_stop_signal()
-            # We still have to wait for the workers to terminate.
+            for worker in set(self.running_workers + self.created_workers):
+                self.terminate_worker(worker)
+
+            return self
+
+        if len(set(self.running_workers + self.created_workers)) != 0:
+            self.push_stop_signal(all_workers=True)
+            # We now wait for the workers to terminate by themselves.
             self.wait()
-
-        for worker in workers:
-            if not worker.is_alive():
-                continue
-
-            # Wait for each worker to terminate.
-            self.terminate_worker(worker)
 
         if self.spread_stop_signal:
             # When all workers are terminated, we send a stop message to the workers
             # that depends on the currently managed workers.
-            self.share_stop_signal()
+            self.share_stop_signal(all_workers=self.spread_stop_signal)
 
         logger.debug("%s-manager | All workers terminated.", self.STD_NAME)
 
@@ -1138,25 +1157,19 @@ class ProcessManagerCore:
         Waits for all workers to finish their work.
         """
 
-        for worker in self.running_workers:
+        for worker in set(self.running_workers + self.created_workers):
             logger.debug(
                 "%s-manager | Waiting for worker: %r", self.STD_NAME, worker.name
             )
 
-            try:
+            if worker.is_alive():
                 worker.join()
-            except KeyboardInterrupt:  # pragma: no cover
-                pass
 
-            try:
+            if worker in self.running_workers:
                 self.running_workers.remove(worker)
-            except ValueError:  # pragma: no cover  # safety
-                pass
 
-            try:
+            if worker in self.created_workers:
                 self.created_workers.remove(worker)
-            except ValueError:  # pragma: no cover  # safety
-                pass
 
             if worker.exception:
                 try:
@@ -1185,39 +1198,6 @@ class ProcessManagerCore:
                 "%s-manager | Still running workers: %r",
                 self.STD_NAME,
                 self.running_workers,
-            )
-
-        for worker in self.created_workers:
-            logger.debug(
-                "%s-manager | Waiting for worker - created: %r",
-                self.STD_NAME,
-                worker.name,
-            )
-
-            worker.terminate()
-            self.created_workers.remove(worker)
-
-            if worker.exception:
-                try:
-                    worker_error, trace = worker.exception
-                except ValueError:
-                    # No exception - actually
-                    continue
-
-                self.terminate()
-                logger.critical(
-                    "%s-manager | Worker %r raised an exception:\n%s",
-                    self.STD_NAME,
-                    worker.name,
-                    trace,
-                )
-
-                raise worker_error
-
-            logger.debug(
-                "%s-manager | Still created workers: %r",
-                self.STD_NAME,
-                self.created_workers,
             )
 
         # Double safety.
