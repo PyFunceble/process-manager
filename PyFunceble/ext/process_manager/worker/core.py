@@ -1161,7 +1161,6 @@ class WorkerCore(multiprocessing.Process):
                 raise exception
 
         self.perform_external_poweroff_checks()
-        self.terminate()
 
         return self
 
