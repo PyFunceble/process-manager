@@ -148,6 +148,16 @@ class ProcessManagerCore:
     When initialized, it will be a :code:`multiprocessing.Event()` object.
     """
 
+    terminating_event: Optional[multiprocessing.synchronize.Event] = None
+    """
+    Stores and exposes the terminating event of the process manager - itself.
+
+    The terminating event is used to keep track of the termination status of the
+    process manager.
+
+    When initialized, it will be a :code:`multiprocessing.Event()` object.
+    """
+
     configuration_queue: Optional[multiprocessing.queues.Queue] = None
     """
     Stores and exposes the configuration queue of the worker.
@@ -364,6 +374,7 @@ class ProcessManagerCore:
             self.manager = manager
 
         self.global_exit_event = self.manager.Event()
+        self.terminating_event = self.manager.Event()
 
         if dependent_managers is None:
             self.dependent_managers = []
@@ -578,7 +589,7 @@ class ProcessManagerCore:
         Provides the termination status of the worker(s).
         """
 
-        return self.global_exit_event.is_set()
+        return self.terminating_event.is_set()
 
     @property
     def max_workers(self) -> int:
@@ -1132,9 +1143,9 @@ class ProcessManagerCore:
             raise ValueError(f"<mode> should be 'soft' or 'hard', {mode} given.")
 
         if not self.is_terminating():
-            # Set the global exit event to tell the workers to stop as soon as
-            # they can.
-            self.global_exit_event.set()
+            # Set the terminating event to tell the controller that we are
+            # terminating.
+            self.terminating_event.set()
 
         if mode == "hard":
             logging.debug(
