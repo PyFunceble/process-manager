@@ -16,6 +16,7 @@ class DummyWorker:
         self.terminate = MagicMock()
         self.join = MagicMock()
         self.global_exit_event = MagicMock()
+        self.terminating_event = MagicMock()
         self.start = MagicMock()
         self.exception = None
         self.target = MagicMock()
@@ -545,21 +546,21 @@ def test_terminate_no_running_workers(process_manager):
 
     assert len(process_manager.created_workers) == 1
     assert len(process_manager.running_workers) == 0
-    assert process_manager.global_exit_event.is_set() is False
+    assert process_manager.terminating_event.is_set() is False
 
     process_manager.terminate()
     process_manager.push_stop_signal.assert_called()
     process_manager.push_stop_signal.reset_mock()
-    assert process_manager.global_exit_event.is_set() is True
+    assert process_manager.terminating_event.is_set() is True
 
     process_manager.created_workers = [MagicMock()]
     process_manager.created_workers[0].is_alive = MagicMock(return_value=False)
     process_manager.created_workers[0].terminate = MagicMock()
-    process_manager.global_exit_event.clear()
+    process_manager.terminating_event.clear()
 
     process_manager.terminate()
     process_manager.push_stop_signal.assert_called()
-    assert process_manager.global_exit_event.is_set() is True
+    assert process_manager.terminating_event.is_set() is True
 
     assert len(process_manager.created_workers) == 0
     assert len(process_manager.running_workers) == 0
