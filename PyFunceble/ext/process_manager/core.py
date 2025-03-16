@@ -492,7 +492,7 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if self.is_terminating():
+            if self.is_terminating():  # pragma: no cover # impossible to test - yet.
                 return self
 
             return func(self, *args, **kwargs)  # pylint: disable=not-callable

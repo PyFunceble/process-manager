@@ -483,6 +483,40 @@ def test_terminate(process_manager):
     assert len(process_manager.created_workers) == 0
 
 
+def test_terminate_wrong_mode(process_manager):
+    process_manager.push_to_output_queues = MagicMock()
+
+    process_manager.spawn_worker()
+    process_manager.spawn_worker()
+
+    assert len(process_manager.created_workers) == 2
+
+    with pytest.raises(ValueError):
+        process_manager.terminate(mode="foobar")
+
+    assert len(process_manager.created_workers) == 2
+
+
+def test_terminate_hard(process_manager):
+    process_manager.push_to_output_queues = MagicMock()
+
+    worker1 = process_manager.spawn_worker()
+    worker2 = process_manager.spawn_worker()
+
+    worker1.terminate = MagicMock()
+    worker2.terminate = MagicMock()
+
+    assert len(process_manager.created_workers) == 2
+
+    process_manager.terminate(mode="hard")
+
+    # In the hard mode, we terminate all workers without waiting for them to finish.
+    worker1.terminate.assert_called_once()
+    worker2.terminate.assert_called_once()
+
+    assert len(process_manager.created_workers) == 0
+
+
 def test_terminate_spread_stop_signal(process_manager):
     process_manager.push_to_output_queues = MagicMock()
     process_manager.spread_stop_signal = True
