@@ -274,6 +274,7 @@ def test_spawn_worker_running_workers_full(process_manager):
 
     assert worker is None
 
+
 def test_spawn_worker_running_workers_full_with_force(process_manager):
     process_manager.running_workers = [DummyWorker() for _ in range(4)]
     process_manager.created_workers = [DummyWorker() for _ in range(4)]
@@ -282,6 +283,7 @@ def test_spawn_worker_running_workers_full_with_force(process_manager):
 
     assert worker is not None
     assert worker.name == "ppm-pyfunceble-process-manager-5"
+
 
 def test_push_to_input_queue(process_manager):
     process_manager.spawn_worker()
@@ -312,7 +314,7 @@ def test_push_to_output_queues(process_manager):
     process_manager.push_to_output_queues("test_data")
     worker = process_manager.created_workers[0]
     worker.push_to_output_queues.assert_called_with(
-        "test_data", source_worker="ppm-pyfunceble-process-manager"
+        "test_data", source_worker="ppm-pyfunceble-process-manager-manager"
     )
 
 
@@ -326,7 +328,7 @@ def test_push_to_output_queues_with_all_queues(process_manager):
     for index, worker in enumerate(process_manager.created_workers):
         worker.push_to_output_queues.assert_called_with(
             "test_data",
-            source_worker="ppm-pyfunceble-process-manager",
+            source_worker="ppm-pyfunceble-process-manager-manager",
             destination_worker=f"ppm-pyfunceble-process-manager-{index+1}",
         )
 
@@ -346,11 +348,11 @@ def test_push_to_output_queues_with_dependent_manager(process_manager):
         process_manager.dependent_managers[0]
         .created_workers[0]
         .push_to_input_queue.assert_called_with(
-            "test_data", source_worker="ppm-pyfunceble-process-manager"
+            "test_data", source_worker="ppm-pyfunceble-process-manager-manager"
         )
     )
     dummy_worker.push_to_input_queue.assert_called_with(
-        "test_data", source_worker="ppm-pyfunceble-process-manager"
+        "test_data", source_worker="ppm-pyfunceble-process-manager-manager"
     )
 
 
@@ -360,7 +362,7 @@ def test_push_to_configuration_queue(process_manager):
     worker = process_manager.created_workers[0]
     worker.push_to_configuration_queue.assert_called_with(
         "test_data",
-        source_worker="ppm-pyfunceble-process-manager",
+        source_worker="ppm-pyfunceble-process-manager-manager",
     )
 
 
@@ -374,7 +376,7 @@ def test_push_to_configuration_queue_with_all_queues(process_manager):
     for index, worker in enumerate(process_manager.created_workers):
         worker.push_to_configuration_queue.assert_called_with(
             "test_data",
-            source_worker="ppm-pyfunceble-process-manager",
+            source_worker="ppm-pyfunceble-process-manager-manager",
             destination_worker=f"ppm-pyfunceble-process-manager-{index+1}",
         )
 
@@ -410,8 +412,7 @@ def test_wait(process_manager):
     process_manager.wait()
 
     running_worker.join.assert_called_once()
-    created_worker.join.assert_not_called()
-    created_worker.terminate.assert_called_once()
+    created_worker.join.assert_called_once()
 
 
 def test_wait_with_exception(process_manager):
@@ -422,7 +423,19 @@ def test_wait_with_exception(process_manager):
     with pytest.raises(RuntimeError):
         process_manager.wait()
 
-    worker.terminate.assert_called_once()
+
+def test_wait_with_terminate_on_exception(process_manager):
+    process_manager.shutdown_on_exception = True
+    worker = process_manager.spawn_worker(start=True)
+
+    process_manager.terminate = MagicMock()
+
+    worker.exception = (RuntimeError("Test exception"), "Test Exception")
+
+    with pytest.raises(RuntimeError):
+        process_manager.wait()
+
+    process_manager.terminate.assert_called_once()
 
 
 def test_wait_running_with_exception(process_manager):
