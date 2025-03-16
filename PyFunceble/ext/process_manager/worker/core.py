@@ -1068,28 +1068,15 @@ class WorkerCore(multiprocessing.Process):
                             "%s | Stop signal received. Delaying shutdown.",
                             self.name,
                         )
-                    else:
                         logger.debug(
-                            "%s | Stop signal received. Scheduling shutdown.",
+                            "%s | Expected shutdown time: %s", self.name, shutdown_time
                         )
-                        self.exit_event.set()
-
-                    if self.spread_stop_signal or self.dependent_workers_names:
-                        # We have to spread the stop signal to everyone.
-                        self.share_stop_signal(
-                            overall=self.spread_stop_signal,
-                            input_queue_only=True,
-                            output_queue_only=False,
-                        )
-
-                        logger.debug(
-                            "%s | Stop signal received. Spreading the stop signal.",
-                            self.name,
-                        )
+                        continue
 
                     logger.debug(
-                        "%s | Expected shutdown time: %s", self.name, shutdown_time
+                        "%s | Stop signal received. Scheduling shutdown.",
                     )
+                    self.exit_event.set()
 
                     continue
 
