@@ -71,6 +71,15 @@ class WorkerCore(multiprocessing.Process):
     Provides the core of the worker manager.
     """
 
+    RESERVED_MESSAGES: List[str] = ["__wait__", "__stop__", "__immediate_shutdown__"]
+    """
+    This is the list of reserved messages that are used by the worker manager.
+
+    .. warning::
+        Messages listed above are reserved. They are used by the worker manager
+        and should not be used as part of your own downstream workers and logic.
+    """
+
     SHARING_DELAY_SECONDS: float = 2.0
     """
     This is the number of seconds to wait before sharing a message.

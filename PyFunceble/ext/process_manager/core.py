@@ -440,11 +440,20 @@ class ProcessManagerCore:
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
+            # We will skip the spawning of the worker if the first argument
+            # is in the list of reserved messages.
+            skip_spawn_based_on_arg = (
+                False if not args else args[0] in WorkerCore.RESERVED_MESSAGES
+            )
 
-            if not self.is_terminating() and (
-                not self.created_workers
-                or self.dynamic_up_scaling
-                or self.dynamic_down_scaling
+            if (
+                not skip_spawn_based_on_arg
+                and not self.is_terminating()
+                and (
+                    not self.created_workers
+                    or self.dynamic_up_scaling
+                    or self.dynamic_down_scaling
+                )
             ):
                 self.spawn_workers(start=False)
 
