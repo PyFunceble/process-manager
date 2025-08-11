@@ -24,7 +24,7 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
@@ -62,7 +62,7 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
@@ -101,7 +101,7 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
@@ -140,7 +140,7 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
@@ -215,7 +215,7 @@ jobs:
         run: |
           echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_ed25519
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Clone repository
 
       - name: Publish 📦 to the AUR - if necessary
