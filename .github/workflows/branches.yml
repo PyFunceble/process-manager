@@ -11,6 +11,9 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Extension
@@ -123,4 +126,3 @@ jobs:
       - name: Run example (with dynamic scaling)
         run: |
           python examples/data_filter.py dynamic-scaling
-
