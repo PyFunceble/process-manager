@@ -9,6 +9,9 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Extension
@@ -83,9 +86,6 @@ jobs:
   example-test:
     needs: [lint]
     name: "[${{ matrix.os }}-py${{ matrix.python_version }}] Integration Test"
-
-    permissions:
-      contents: read
 
     runs-on: "${{ matrix.os }}"
 
@@ -197,7 +197,6 @@ jobs:
       image: archlinux
 
     steps:
-
       - name: Get time for cache
         id: cache_time
         run: echo "time=$(date +%F-%T)" >> ${GITHUB_OUTPUT}
