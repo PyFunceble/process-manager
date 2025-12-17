@@ -737,9 +737,9 @@ class ProcessManagerCore:
                     data, source_worker=source_worker, destination_worker=worker.name
                 )
         elif workers:
-            random.choice(workers).push_to_input_queue(
-                data, source_worker=source_worker
-            )
+            random.choice(  # nosec: B311 # We aren't doing encryption here.
+                workers
+            ).push_to_input_queue(data, source_worker=source_worker)
 
         logger.debug("%s-manager | Pushed to input queue: %r", self.STD_NAME, data)
 
@@ -790,9 +790,9 @@ class ProcessManagerCore:
                         destination_worker=worker.name,
                     )
             elif workers:
-                random.choice(workers).push_to_output_queues(
-                    data, source_worker=source_worker
-                )
+                random.choice(  # nosec: B311 # We aren't doing encryption here.
+                    workers
+                ).push_to_output_queues(data, source_worker=source_worker)
         else:
             for manager in self.dependent_managers:
                 # Their input queue is our output queue.
@@ -839,9 +839,9 @@ class ProcessManagerCore:
                     data, source_worker=source_worker, destination_worker=worker.name
                 )
         elif workers:
-            random.choice(workers).push_to_configuration_queue(
-                data, source_worker=source_worker
-            )
+            random.choice(  # nosec: B311 # We aren't doing encryption here.
+                workers
+            ).push_to_configuration_queue(data, source_worker=source_worker)
 
         logger.debug(
             "%s-manager | Pushed to configuration queue: %r", self.STD_NAME, data
