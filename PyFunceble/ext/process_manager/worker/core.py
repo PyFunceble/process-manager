@@ -1074,7 +1074,7 @@ class WorkerCore(multiprocessing.Process):
                         continue
 
                     logger.debug(
-                        "%s | Stop signal received. Scheduling shutdown.",
+                        "%s | Stop signal received. Scheduling shutdown.", self.name
                     )
                     self.exit_event.set()
                     # Make sure that none of the concurrent workers are stuck or
