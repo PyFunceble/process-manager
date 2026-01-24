@@ -691,7 +691,8 @@ class ProcessManagerCore:
             The dependent manager to remove.
         """
 
-        self.dependent_managers.remove(manager)
+        if manager in self.dependent_managers:
+            self.dependent_managers.remove(manager)
 
         return self
 
@@ -1001,8 +1002,11 @@ class ProcessManagerCore:
                     "__immediate_shutdown__", destination_worker=worker_to_kill.name
                 )
 
-                self.running_workers.remove(worker_to_kill)
-                self.created_workers.remove(worker_to_kill)
+                if worker_to_kill in self.running_workers:
+                    self.running_workers.remove(worker_to_kill)
+
+                if worker_to_kill in self.created_workers:
+                    self.created_workers.remove(worker_to_kill)
 
                 return self
             return self
