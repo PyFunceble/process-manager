@@ -27,11 +27,11 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -58,11 +58,11 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -95,11 +95,11 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -134,11 +134,11 @@ jobs:
           - windows-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -173,11 +173,11 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Set up Python ${{ matrix.python_version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -195,7 +195,7 @@ jobs:
           twine check dist/*
 
       - name: Attest 📦
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
 
@@ -247,7 +247,7 @@ jobs:
         run: |
           echo "${{ secrets.AUR_SSH_KEY }}" | install -Dm600 /dev/stdin ~/.ssh/id_ed25519
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         name: Clone repository
 
       - name: Publish 📦 to the AUR - if necessary
